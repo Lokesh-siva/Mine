@@ -2,7 +2,7 @@ name: Build Mine APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   workflow_dispatch:
 
 permissions:
@@ -11,6 +11,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Mine
     steps:
       - uses: actions/checkout@v4
 
@@ -32,9 +35,9 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Mine-apk
-          path: Mine.apk
+          path: Mine/Mine.apk
 
-      - name: Publish to Releases (easy download on your phone)
+      - name: Publish to Releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
