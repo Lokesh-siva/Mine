@@ -149,39 +149,55 @@ public class MainActivity extends Activity {
 
     private void requireUnlock() {
         if (!lockEnabled()) { web.setVisibility(View.VISIBLE); return; }
-        if (unlocked && System.currentTimeMillis() - leftAt < RELOCK_MS) { web.setVisibility(View.VISIBLE); return; }
+        if (unlocked && (leftAt == 0 || System.currentTimeMillis() - leftAt < RELOCK_MS)) { web.setVisibility(View.VISIBLE); return; }
         unlocked = false;
         web.setVisibility(View.INVISIBLE);
         if (authing) return;
         authing = true;
-        if (Build.VERSION.SDK_INT >= 30) {
-            BiometricPrompt.Builder b = new BiometricPrompt.Builder(this)
+        if (Build.VERSION.SDK_INT >= 30 && showBiometricPrompt()) return;
+        // Android 8-10, or the prompt failed: use the phone's PIN / pattern screen
+        KeyguardManager km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+        Intent i = km.createConfirmDeviceCredentialIntent("Unlock Mine", null);
+        if (i == null) { onUnlocked(); return; }
+        startActivityForResult(i, LOCK_REQ);
+    }
+
+    private boolean showBiometricPrompt() {
+        try {
+            new BiometricPrompt.Builder(this)
                     .setTitle("Unlock Mine")
                     .setAllowedAuthenticators(android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_STRONG
-                            | android.hardware.biometrics.BiometricManager.Authenticators.DEVICE_CREDENTIAL);
-            b.build().authenticate(new CancellationSignal(), getMainExecutor(), new BiometricPrompt.AuthenticationCallback() {
-                @Override
-                public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult r) {
-                    authing = false; unlocked = true; web.setVisibility(View.VISIBLE);
-                }
+                            | android.hardware.biometrics.BiometricManager.Authenticators.DEVICE_CREDENTIAL)
+                    .build()
+                    .authenticate(new CancellationSignal(), getMainExecutor(), new BiometricPrompt.AuthenticationCallback() {
+                        @Override
+                        public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult r) {
+                            onUnlocked();
+                        }
 
-                @Override
-                public void onAuthenticationError(int code, CharSequence msg) {
-                    authing = false; finish();
-                }
-            });
-        } else {
-            KeyguardManager km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
-            Intent i = km.createConfirmDeviceCredentialIntent("Unlock Mine", null);
-            if (i == null) { authing = false; unlocked = true; web.setVisibility(View.VISIBLE); return; }
-            startActivityForResult(i, LOCK_REQ);
+                        @Override
+                        public void onAuthenticationError(int code, CharSequence msg) {
+                            authing = false;
+                            finish();
+                        }
+                    });
+            return true;
+        } catch (Exception e) {
+            return false;
         }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        if (!authing) leftAt = System.currentTimeMillis();
+        if (!authing && unlocked) leftAt = System.currentTimeMillis();
+    }
+
+    private void onUnlocked() {
+        authing = false;
+        unlocked = true;
+        leftAt = 0;
+        web.setVisibility(View.VISIBLE);
     }
 
     @Override
@@ -218,7 +234,7 @@ public class MainActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == LOCK_REQ) {
             authing = false;
-            if (resultCode == RESULT_OK) { unlocked = true; web.setVisibility(View.VISIBLE); }
+            if (resultCode == RESULT_OK) onUnlocked();
             else finish();
             return;
         }
