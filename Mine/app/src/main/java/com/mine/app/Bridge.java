@@ -97,8 +97,26 @@ public class Bridge {
     }
 
     @JavascriptInterface
+    public boolean canLock() {
+        return activity.deviceSecure();
+    }
+
+    @JavascriptInterface
+    public boolean lockEnabled() {
+        return activity.lockEnabled();
+    }
+
+    @JavascriptInterface
+    public boolean setLock(boolean on) {
+        activity.setLockEnabled(on);
+        return activity.lockEnabled();
+    }
+
+    @JavascriptInterface
     public String saveFile(String name, String content) {
         try {
+            name = name == null ? "mine.txt" : name.replaceAll("[^A-Za-z0-9._ -]", "_");
+            if (name.startsWith(".") || name.isEmpty()) name = "mine" + name;
             byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
             if (Build.VERSION.SDK_INT >= 29) {
                 ContentValues v = new ContentValues();

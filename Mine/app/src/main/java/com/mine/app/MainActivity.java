@@ -5,10 +5,18 @@ import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.app.KeyguardManager;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.os.CancellationSignal;
+import android.hardware.biometrics.BiometricPrompt;
+import android.view.WindowManager;
+import android.webkit.WebResourceResponse;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.View;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -24,10 +32,17 @@ public class MainActivity extends Activity {
     private String pendingAction = null;
     private boolean loaded = false;
     private static final int FILE_REQ = 42;
+    private static final int LOCK_REQ = 43;
+    private static final long RELOCK_MS = 30_000L;
+    private long leftAt = 0;
+    private boolean authing = false;
+    private boolean unlocked = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Hide contents from screenshots and the recent-apps preview
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE);
         web = new WebView(this);
         web.setBackgroundColor(Color.parseColor("#0A0F0C"));
         setContentView(web);
@@ -36,9 +51,22 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
-        s.setAllowFileAccess(true);
+        s.setAllowFileAccess(false);
+        s.setAllowFileAccessFromFileURLs(false);
+        s.setAllowUniversalAccessFromFileURLs(false);
+        s.setAllowContentAccess(false);
+        s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        s.setGeolocationEnabled(false);
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setTextZoom(100);
+        s.setSupportZoom(false);
+        s.setBuiltInZoomControls(false);
+        s.setDisplayZoomControls(false);
+        s.setUseWideViewPort(true);
+        s.setLoadWithOverviewMode(false);
+        web.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        web.setVerticalScrollBarEnabled(false);
+        web.setHorizontalScrollBarEnabled(false);
 
         web.addJavascriptInterface(new Bridge(this), "MineNative");
 
@@ -46,11 +74,22 @@ public class MainActivity extends Activity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri u = request.getUrl();
-                if ("file".equals(u.getScheme())) return false;
-                try {
-                    startActivity(new Intent(Intent.ACTION_VIEW, u));
-                } catch (Exception ignored) { }
+                if (isAppPage(u)) return false;
+                String sc = u.getScheme();
+                if ("https".equals(sc) || "mailto".equals(sc) || "tel".equals(sc) || "upi".equals(sc)) {
+                    try {
+                        startActivity(new Intent(Intent.ACTION_VIEW, u));
+                    } catch (Exception ignored) { }
+                }
                 return true;
+            }
+
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                Uri u = request.getUrl();
+                if (isAppPage(u)) return null;
+                // The app is fully offline: block every other load inside the WebView
+                return new WebResourceResponse("text/plain", "utf-8", null);
             }
 
             @Override
@@ -83,7 +122,66 @@ public class MainActivity extends Activity {
         }
 
         handleIntent(getIntent());
+        if (lockEnabled()) { web.setVisibility(View.INVISIBLE); }
         web.loadUrl("file:///android_asset/index.html");
+    }
+
+    private static boolean isAppPage(Uri u) {
+        return "file".equals(u.getScheme()) && u.getPath() != null && u.getPath().startsWith("/android_asset/");
+    }
+
+    SharedPreferences prefs() {
+        return getSharedPreferences("mine_security", Context.MODE_PRIVATE);
+    }
+
+    boolean lockEnabled() {
+        return prefs().getBoolean("lock", false) && deviceSecure();
+    }
+
+    boolean deviceSecure() {
+        KeyguardManager km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+        return km != null && km.isDeviceSecure();
+    }
+
+    void setLockEnabled(boolean on) {
+        prefs().edit().putBoolean("lock", on && deviceSecure()).apply();
+    }
+
+    private void requireUnlock() {
+        if (!lockEnabled()) { web.setVisibility(View.VISIBLE); return; }
+        if (unlocked && System.currentTimeMillis() - leftAt < RELOCK_MS) { web.setVisibility(View.VISIBLE); return; }
+        unlocked = false;
+        web.setVisibility(View.INVISIBLE);
+        if (authing) return;
+        authing = true;
+        if (Build.VERSION.SDK_INT >= 30) {
+            BiometricPrompt.Builder b = new BiometricPrompt.Builder(this)
+                    .setTitle("Unlock Mine")
+                    .setAllowedAuthenticators(android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_STRONG
+                            | android.hardware.biometrics.BiometricManager.Authenticators.DEVICE_CREDENTIAL);
+            b.build().authenticate(new CancellationSignal(), getMainExecutor(), new BiometricPrompt.AuthenticationCallback() {
+                @Override
+                public void onAuthenticationSucceeded(BiometricPrompt.AuthenticationResult r) {
+                    authing = false; unlocked = true; web.setVisibility(View.VISIBLE);
+                }
+
+                @Override
+                public void onAuthenticationError(int code, CharSequence msg) {
+                    authing = false; finish();
+                }
+            });
+        } else {
+            KeyguardManager km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+            Intent i = km.createConfirmDeviceCredentialIntent("Unlock Mine", null);
+            if (i == null) { authing = false; unlocked = true; web.setVisibility(View.VISIBLE); return; }
+            startActivityForResult(i, LOCK_REQ);
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (!authing) leftAt = System.currentTimeMillis();
     }
 
     @Override
@@ -118,6 +216,12 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == LOCK_REQ) {
+            authing = false;
+            if (resultCode == RESULT_OK) { unlocked = true; web.setVisibility(View.VISIBLE); }
+            else finish();
+            return;
+        }
         if (requestCode == FILE_REQ && fileCallback != null) {
             fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode, data));
             fileCallback = null;
@@ -134,6 +238,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        requireUnlock();
         if (loaded) web.evaluateJavascript("window.mineResume&&window.mineResume()", null);
     }
 }
