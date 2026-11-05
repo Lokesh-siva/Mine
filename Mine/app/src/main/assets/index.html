@@ -358,7 +358,7 @@ const S={
   _t:{}
 };
 const A={fired:{},snoozes:{},soundOn:false}; // device-local alarm bookkeeping
-const UI={sel:'today',mode:'list',calMonth:null,calSel:null,monthYM:null,acctFilter:'all',txSearch:'',habitArchived:false};
+const UI={sel:'all',mode:'list',calMonth:null,calSel:null,monthYM:null,acctFilter:'all',txSearch:'',habitArchived:false};
 
 /* ================= storage & sync ================= */
 const LS='daybook.v1', LSA='daybook.alarms.v1';
@@ -615,26 +615,26 @@ function addQuick(raw,defDue){
 
 function viewTasks(){
   if(UI.mode!=='calendar') UI.mode='list';
-  if(UI.sel!=='tomorrow') UI.sel='today';
+  if(UI.sel!=='today'&&UI.sel!=='tomorrow') UI.sel='all';
   const sel=UI.sel, n=todayS(), tm=ymd(addDays(new Date(),1));
-  const pick=k=>k==='tomorrow'?selTasks('tomorrow'):selTasks('today').concat(selTasks('nodate'));
+  const pick=k=>k==='all'?selTasks('all'):k==='tomorrow'?selTasks('tomorrow'):selTasks('today').concat(selTasks('nodate'));
   const items=sortTasks(pick(sel));
   const modes=`<div class="seg" role="group" aria-label="View">${[['list','List'],['calendar','Calendar']].map(([k,l])=>`<button data-act="mode" data-v="${k}" aria-pressed="${UI.mode===k}">${l}</button>`).join('')}</div>`;
   let body='';
   if(UI.mode==='calendar') body=calendarView();
   else {
-    const chips=`<div class="chips tasks-chips" style="margin-bottom:12px">${[['today','Today'],['tomorrow','Tomorrow']].map(([k,l])=>{const c=pick(k).length;return `<button class="chip" data-act="sel" data-v="${k}" aria-pressed="${sel===k}">${l}${c?`<span class="count">${c}</span>`:''}</button>`}).join('')}</div>`;
-    const quick=`<div class="quick"><input id="quick" placeholder="Add a task for ${sel==='tomorrow'?'tomorrow':'today'}" autocomplete="off" aria-label="Add a task"><button class="btn primary sm" data-act="quick-add">Add</button></div><div class="quick-hint" id="quick-hint">${quickHint('')}</div>`;
+    const chips=`<div class="chips tasks-chips" style="margin-bottom:12px">${[['today','Today'],['tomorrow','Tomorrow']].map(([k,l])=>{const c=pick(k).length;return `<button class="chip" data-act="sel" data-v="${sel===k?'all':k}" aria-pressed="${sel===k}">${l}${c?`<span class="count">${c}</span>`:''}</button>`}).join('')}</div>`;
+    const quick=`<div class="quick"><input id="quick" placeholder="Add a task${sel==='tomorrow'?' for tomorrow':sel==='today'?' for today':''}" autocomplete="off" aria-label="Add a task"><button class="btn primary sm" data-act="quick-add">Add</button></div><div class="quick-hint" id="quick-hint">${quickHint('')}</div>`;
     let list='';
-    if(!items.length) list=`<div class="empty">Nothing ${sel==='tomorrow'?'for tomorrow':'for today'}. Add a task above, type a time like “5pm” and it gets an alarm.</div>`;
+    if(!items.length) list=`<div class="empty">Nothing ${sel==='tomorrow'?'for tomorrow':sel==='today'?'for today':'to do'}. Add a task above, type a time like “5pm” and it gets an alarm.</div>`;
     else {
-      const groups=sel==='tomorrow'?[['Tomorrow',()=>true]]:[['Overdue',t=>isOver(t),'over'],['Today',t=>t.due===n],['No date',t=>!t.due]];
+      const groups=sel==='tomorrow'?[['Tomorrow',()=>true]]:[['Overdue',t=>isOver(t),'over'],['Today',t=>t.due===n],['Tomorrow',t=>t.due===tm],['Later',t=>t.due>tm],['No date',t=>!t.due]];
       const used=new Set();
       groups.forEach(([g,f,cls])=>{const gi=items.filter(t=>!used.has(t.id)&&f(t));gi.forEach(t=>used.add(t.id));if(gi.length) list+=`<div class="group-title ${cls||''}">${g} <span class="faint">${gi.length}</span></div>`+gi.map(t=>taskRow(t)).join('')});
     }
     body=chips+quick+list;
   }
-  return `<div class="page-head"><div><h1>${UI.mode==='calendar'?'Calendar':'Tasks'}</h1><div class="sub">${UI.mode==='list'?items.length+' open task'+(items.length===1?'':'s'):''}</div></div>${modes}</div>
+  return `<div class="page-head"><div><h1>${UI.mode==='calendar'?'Calendar':sel==='all'?'All tasks':selName(sel)}</h1><div class="sub">${UI.mode==='list'?items.length+' open task'+(items.length===1?'':'s'):''}</div></div>${modes}</div>
   <div class="tasks-layout"><div class="sidelist"></div><div>${body}</div></div>
   <button class="fab" data-act="new-task" aria-label="New task">${I.plus}</button>`;
 }
@@ -1266,7 +1266,7 @@ ui(async e=>{
     /* tasks */
     case 'sel': UI.sel=v; if(UI.mode==='calendar'||UI.mode==='focus')UI.mode='list'; render(); window.scrollTo(0,0); break;
     case 'mode': UI.mode=v; render(); break;
-    case 'goto-today-tasks': UI.sel='today'; UI.mode='list'; break;
+    case 'goto-today-tasks': UI.sel='all'; UI.mode='list'; break;
     case 'toggle-task': stop(); toggleTask(id); break;
     case 'edit-task': openTask(id); break;
     case 'new-task': openTask(null,el.dataset.prio?{prio:+el.dataset.prio}:{}); break;
@@ -1381,7 +1381,7 @@ document.addEventListener('keydown',e=>{
   else if(t.id==='t-newsub'){e.preventDefault();$('[data-act="add-sub"]').click()}
   else if(t.id==='cat-new-exp'||t.id==='cat-new-inc'){e.preventDefault();$(`[data-act="cat-add"][data-k="${t.id.slice(-3)}"]`).click()}
 });
-window.addEventListener('hashchange',()=>{render();window.scrollTo(0,0)});
+window.addEventListener('hashchange',()=>{if(route()==='tasks')UI.sel='all';render();window.scrollTo(0,0)});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){checkAlarms();if(['today','habits'].includes(route()))render()}});
 
 /* ================= init ================= */
