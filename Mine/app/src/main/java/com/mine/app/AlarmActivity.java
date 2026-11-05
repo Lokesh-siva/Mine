@@ -24,10 +24,10 @@ import java.util.Locale;
 
 public class AlarmActivity extends Activity {
     private static final int BG = Color.parseColor("#0A0F0C");
-    private static final int GREEN = Color.parseColor("#3DDC84");
+    private int GREEN = Theme.DEFAULT_ACCENT;
     private static final int INK = Color.parseColor("#E8F1EB");
     private static final int MUTED = Color.parseColor("#9DB0A4");
-    private static final int DARK = Color.parseColor("#04140A");
+    private int DARK = Color.parseColor("#04140A");
 
     private JSONObject alarm;
     private int nid;
@@ -35,6 +35,8 @@ public class AlarmActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        GREEN = Theme.accent(this);
+        DARK = Theme.ink(GREEN);
         if (Build.VERSION.SDK_INT >= 27) {
             setShowWhenLocked(true);
             setTurnScreenOn(true);

@@ -170,6 +170,11 @@ public class Bridge {
     }
 
     @JavascriptInterface
+    public void setAccent(String hex) {
+        Theme.setAccent(activity.getApplicationContext(), hex);
+    }
+
+    @JavascriptInterface
     public String saveFile(String name, String content) {
         try {
             name = name == null ? "mine.txt" : name.replaceAll("[^A-Za-z0-9._ -]", "_");

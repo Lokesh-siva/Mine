@@ -7,6 +7,8 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
+import android.os.Build;
 import android.widget.RemoteViews;
 
 /** 2x1 home screen widget: this month's spending and a + button that opens "Add expense". */
@@ -43,6 +45,11 @@ public class ExpenseWidget extends AppWidgetProvider {
         } else {
             v.setTextViewText(R.id.widget_label, p.getString("label", "SPENT"));
             v.setTextViewText(R.id.widget_amount, p.getString("amount", "₹0"));
+        }
+        if (Build.VERSION.SDK_INT >= 31) {
+            int accent = Theme.accent(c);
+            v.setColorStateList(R.id.widget_add, "setBackgroundTintList", ColorStateList.valueOf(accent));
+            v.setColorStateList(R.id.widget_add, "setImageTintList", ColorStateList.valueOf(Theme.ink(accent)));
         }
         Intent i = new Intent(c, MainActivity.class).setAction(ACTION_ADD_EXPENSE)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);

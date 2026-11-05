@@ -62,7 +62,7 @@ public class AlarmReceiver extends BroadcastReceiver {
         ch.enableVibration(true);
         ch.setVibrationPattern(new long[]{0, 700, 500, 700, 500, 700});
         ch.enableLights(true);
-        ch.setLightColor(0xFF3DDC84);
+        ch.setLightColor(Theme.accent(c));
         ch.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
         nm.createNotificationChannel(ch);
     }
@@ -101,7 +101,7 @@ public class AlarmReceiver extends BroadcastReceiver {
         Icon icon = Icon.createWithResource(c, R.drawable.ic_stat);
         Notification.Builder b = new Notification.Builder(c, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setColor(0xFF3DDC84)
+                .setColor(Theme.accent(c))
                 .setContentTitle(o.optString("title", "Reminder"))
                 .setContentText(o.optString("body", ""))
                 .setCategory(Notification.CATEGORY_ALARM)

@@ -346,7 +346,7 @@ public class ExpenseWatch extends BroadcastReceiver {
         PendingIntent pi = PendingIntent.getActivity(c, NID_SMS, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification nt = new Notification.Builder(c, CH_SMS)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setColor(0xFF3DDC84)
+                .setColor(Theme.accent(c))
                 .setContentTitle(n + (n == 1 ? " expense" : " expenses") + " not added yet")
                 .setContentText("₹" + nf.format(total) + " from your bank SMS · tap to review")
                 .setVisibility(Notification.VISIBILITY_PRIVATE)
@@ -365,7 +365,7 @@ public class ExpenseWatch extends BroadcastReceiver {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification nt = new Notification.Builder(c, CH_REVIEW)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setColor(0xFF3DDC84)
+                .setColor(Theme.accent(c))
                 .setContentTitle(week ? "Your weekly expense review" : "Your monthly expense review")
                 .setContentText(week ? "See where your money went this week" : "See where your money went last month")
                 .setCategory(Notification.CATEGORY_REMINDER)

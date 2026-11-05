@@ -191,6 +191,11 @@ body{overflow-x:clip}
 .hicon{width:42px;height:42px;border-radius:12px;background:var(--surface2);display:grid;place-items:center;font-size:1.3rem;flex:none;border:0;padding:0}
 .hname{font-weight:700;border:0;background:none;padding:0;text-align:left;cursor:pointer}
 .hcheck{flex:none;width:44px;height:44px;border-radius:50%;border:2px solid var(--line);background:transparent;display:grid;place-items:center;font-weight:700;font-size:.8rem;position:relative}
+.swatches{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+.swatch{width:38px;height:38px;border-radius:50%;border:2px solid var(--line);background:var(--c);display:grid;place-items:center;color:#04140A;padding:0;cursor:pointer}
+.swatch[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 2px var(--bg) inset}
+.swatch.custom{background:conic-gradient(#FF6B6B,#F5B03A,#3DDC84,#2DD4BF,#6EA8FF,#A78BFA,#F472B6,#FF6B6B);position:relative;overflow:hidden}
+.swatch.custom input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
 .hcheck.on{background:var(--green);border-color:var(--green);color:var(--accent-ink)}
 .hcheck svg{width:20px;height:20px}
 .week{display:flex;gap:4px;margin-top:6px}
@@ -272,7 +277,7 @@ body{overflow-x:clip}
 .sync{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;color:var(--muted)}
 .sync i{width:8px;height:8px;border-radius:50%;background:var(--faint)}
 .sync.ok i{background:var(--green)} .sync.err i{background:var(--red)}
-.fab{position:fixed;right:18px;bottom:calc(80px + env(safe-area-inset-bottom,0px));z-index:15;width:56px;height:56px;border-radius:18px;border:0;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;box-shadow:0 8px 24px rgba(61,220,132,.28)}
+.fab{position:fixed;right:18px;bottom:calc(80px + env(safe-area-inset-bottom,0px));z-index:15;width:56px;height:56px;border-radius:18px;border:0;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;box-shadow:0 8px 24px var(--glow,rgba(61,220,132,.28))}
 .fab svg{width:26px;height:26px}
 @media (min-width:900px){.fab{bottom:28px;right:28px}}
 .hide{display:none !important}
@@ -366,7 +371,7 @@ const DEFAULT_EXP=['Food & dining','Groceries','Fuel','Transport','Shopping','Bi
 const DEFAULT_INC=['Salary','Carpool','Refund','Interest','Freelance','Other income'];
 const CAT_ICON={'Food & dining':'🍛','Groceries':'🛒','Fuel':'⛽','Transport':'🚕','Shopping':'🛍️','Bills & utilities':'💡','Rent':'🏠','EMI & loans':'🏦','Health':'💊','Entertainment':'🎬','Travel':'✈️','Personal care':'💈','Education':'📚','Gifts':'🎁','Investments':'📈','Other':'•','Salary':'💼','Carpool':'🚗','Refund':'↩️','Interest':'%','Freelance':'🧑‍💻','Other income':'＋'};
 const S={
-  settings:{sound:'chime',allDayTime:'09:00',snooze:10,budget:0,theme:'system',upi:'',focusMin:25,shortMin:5,longMin:15},
+  settings:{sound:'chime',allDayTime:'09:00',snooze:10,budget:0,theme:'system',accent:'#3DDC84',upi:'',focusMin:25,shortMin:5,longMin:15},
   accounts:[], cats:{exp:DEFAULT_EXP.slice(),inc:DEFAULT_INC.slice()}, txns:[],
   lists:[{id:'inbox',name:'Inbox',color:'#2447D6'}], tasks:[], focus:[],
   habits:[], hlog:{},
@@ -476,7 +481,7 @@ const I={
   edit:ic('<path d="M4 20h4L19 9l-4-4L4 16z"/>'),
   copy:ic('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>')
 };
-const LOGO=`<svg viewBox="0 0 108 108" aria-hidden="true"><rect width="108" height="108" rx="24" fill="#111915"/><g transform="translate(26.4 26.4) scale(2.3)"><path d="M4.5 19V10.5l6.6 6.6L18.5 6.2V19" fill="none" stroke="#3DDC84" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="21.2" cy="3.4" r="1.7" fill="#3DDC84"/></g></svg>`;
+const LOGO=`<svg viewBox="0 0 108 108" aria-hidden="true"><rect width="108" height="108" rx="24" fill="#111915"/><g transform="translate(26.4 26.4) scale(2.3)"><path d="M4.5 19V10.5l6.6 6.6L18.5 6.2V19" fill="none" style="stroke:var(--accent)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="21.2" cy="3.4" r="1.7" style="fill:var(--accent)"/></g></svg>`;
 const bigBell=`<svg class="bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>`;
 
 /* ================= router & shell ================= */
@@ -513,7 +518,23 @@ function syncWatch(){
   if(idx===watchLast) return; watchLast=idx;
   try{window.MineNative.setExpenseIndex(idx)}catch(e){}
 }
-function applyTheme(){}
+const ACCENTS=[['#3DDC84','Green'],['#2DD4BF','Teal'],['#38BDF8','Sky'],['#6EA8FF','Blue'],['#A78BFA','Violet'],['#F472B6','Pink'],['#FF6B6B','Coral'],['#FB923C','Orange'],['#F5B03A','Amber'],['#E8F1EB','Mono']];
+function hexRgb(h){h=String(h||'').replace('#','');if(h.length===3)h=h.replace(/./g,'$&$&');const n=parseInt(h,16);return /^[0-9a-f]{6}$/i.test(h)?[n>>16&255,n>>8&255,n&255]:null}
+const inkOf=h=>{const c=hexRgb(h)||[0,0,0];return (.2126*c[0]+.7152*c[1]+.0722*c[2])>140?'#04140A':'#FFFFFF'};
+function applyTheme(){
+  const hex=hexRgb(S.settings.accent)?S.settings.accent:'#3DDC84', c=hexRgb(hex), bg=[10,15,12];
+  const mix=t=>'rgb('+c.map((v,i)=>Math.round(bg[i]+(v-bg[i])*t)).join(',')+')';
+  const ink=inkOf(hex), r=document.documentElement.style;
+  [['--accent',hex],['--green',hex],['--amber',hex],['--amber-bg',hex],['--accent-ink',ink],['--amber-ink',ink],['--soft',mix(.16)],['--green-soft',mix(.13)],['--glow','rgba('+c.join(',')+',.28)']].forEach(([k,v])=>r.setProperty(k,v));
+  if(NATIVE)try{window.MineNative.setAccent(hex)}catch(e){}
+}
+function themePanel(){
+  const cur=(S.settings.accent||'#3DDC84').toUpperCase(), known=ACCENTS.some(([h])=>h===cur);
+  return `<div class="panel"><h3>Theme</h3><label class="f">Accent colour</label>
+    <div class="swatches">${ACCENTS.map(([h,l])=>`<button class="swatch" style="--c:${h};color:${inkOf(h)}" data-act="accent" data-v="${h}" aria-pressed="${h===cur}" aria-label="${l}" title="${l}">${h===cur?I.check:''}</button>`).join('')}
+    <label class="swatch custom" aria-pressed="${!known}" title="Custom colour" ${!known?`style="background:${cur};color:${inkOf(cur)}"`:''}>${!known?I.check:''}<input type="color" id="accent-custom" value="${cur.toLowerCase()}" aria-label="Custom accent colour"></label></div>
+    <p class="small muted" style="margin:10px 0 0">Used for buttons, highlights, the alarm screen, notifications and the home screen widget.</p></div>`;
+}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2600)}
 
 /* modal */
@@ -1312,6 +1333,7 @@ function viewPrefs(){
   const st=S.settings, np='Notification' in window?Notification.permission:'unsupported';
   return `<div class="page-head"><div><h1>Settings</h1><div class="sub"><span class="sync"><i></i>${syncLabel()}</span></div></div></div>
   <div class="grid2"><div>
+  ${themePanel()}
   ${NATIVE?lockPanel():""}
   ${NATIVE?watchPanel():""}
   ${NATIVE?nativeAlarmPanel():`<div class="panel"><h3>Alarms</h3>
@@ -1485,6 +1507,7 @@ ui(async e=>{
     case 'dismiss-notif': el.closest('.banner').remove(); break;
     /* settings */
     case 'test-sound': Snd.unlock(); setTimeout(()=>Snd.play(S.settings.sound,false),100); break;
+    case 'accent': S.settings.accent=v; applyTheme(); Store.mark('settings'); render(); break;
     case 'theme': S.settings.theme=v; applyTheme(); Store.mark('settings'); render(); break;
     case 'native-perm': try{window.MineNative.openAlarmSettings(v)}catch(err){} break;
     case 'test-alarm': try{window.MineNative.testAlarm(10);toast('Test alarm in 10 seconds. You can lock the phone.')}catch(err){} break;
@@ -1495,13 +1518,15 @@ ui(async e=>{
 });
 document.addEventListener('input',e=>{
   const t=e.target;
-  if(t.id==='quick'){const h=$('#quick-hint');if(h)h.innerHTML=quickHint(t.value)}
+  if(t.id==='accent-custom'){S.settings.accent=t.value.toUpperCase();applyTheme()}
+  else if(t.id==='quick'){const h=$('#quick-hint');if(h)h.innerHTML=quickHint(t.value)}
   else if(t.id==='tx-search'){UI.txSearch=t.value;const pos=t.selectionStart;render();const n=$('#tx-search');if(n){n.focus();n.setSelectionRange(pos,pos)}}
   else if(t.closest&&t.closest('#tr-fixed,#tr-split')) updateTripPreview();
 });
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.dataset.set){let v=t.value;if(t.type==='number')v=+v||0;S.settings[t.dataset.set]=v;Store.mark('settings');if(t.dataset.set==='budget')toast('Budget saved');if(t.dataset.set.endsWith('Min')&&!F.running)F.remaining=null}
+  if(t.id==='accent-custom'){S.settings.accent=t.value.toUpperCase();applyTheme();Store.mark('settings');render()}
   if(t.id==='t-rep') $('#t-int-wrap').classList.toggle('hide',t.value!=='custom');
   if(t.dataset.set==='snooze'||t.dataset.set==='allDayTime')syncNative();
   if(t.id==='a-type'){const c=t.value==='card';$('#a-card').classList.toggle('hide',!c)}
