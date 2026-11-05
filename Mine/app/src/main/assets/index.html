@@ -115,6 +115,21 @@ textarea.in{resize:vertical;min-height:64px}
 .banner{display:flex;gap:12px;align-items:center;background:var(--amber-bg);color:var(--amber-ink);border-radius:14px;padding:12px 14px;margin-bottom:14px;font-weight:500}
 .banner .btn{background:var(--amber-ink);color:var(--accent);border-color:transparent}
 .banner svg{width:22px;height:22px;flex:none}
+button.banner{width:100%;border:0;text-align:left;font:inherit;cursor:pointer}
+button.banner .go{background:var(--amber-ink);color:var(--accent);border-radius:10px;padding:6px 12px;font-weight:700;font-size:.85rem;flex:none}
+.smsrow{border-bottom:1px solid var(--line);padding:10px 2px}
+.smsrow:last-child{border-bottom:0}
+#review{position:fixed;inset:0;z-index:55;display:none;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
+#review.open{display:block}
+#review .wrap{max-width:640px;margin:0 auto;padding:calc(14px + env(safe-area-inset-top,0px)) 16px calc(28px + env(safe-area-inset-bottom,0px))}
+#review .top{display:flex;align-items:center;gap:8px;margin-bottom:18px}
+#review .eyebrow{font-size:.75rem;font-weight:700;letter-spacing:.12em;color:var(--accent);text-transform:uppercase}
+#review .range{font-family:var(--display);font-weight:700;font-size:1.15rem;margin-top:4px}
+#review .total{font-family:var(--display);font-weight:800;font-size:clamp(3rem,15vw,4.6rem);line-height:1;letter-spacing:-.04em;margin:14px 0 10px}
+#review .delta{display:inline-flex;gap:6px;align-items:center;border-radius:999px;padding:6px 12px;font-weight:700;font-size:.85rem;background:var(--soft);color:var(--accent)}
+#review .delta.up{background:var(--red-soft);color:var(--red)}
+#review .hero{text-align:center;padding:10px 0 22px}
+#review .done{width:100%;padding:14px;font-size:1rem;margin-top:6px}
 
 /* tasks */
 .tasks-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
@@ -297,6 +312,7 @@ body.modal-open{overflow:hidden}
 <nav class="tabbar" id="tabbar" aria-label="Sections"></nav>
 <div id="modal" role="dialog" aria-modal="true"><div class="scrim" data-act="close-modal"></div><div class="sheet" id="sheet"></div></div>
 <div id="alarm" role="alertdialog" aria-live="assertive"></div>
+<div id="review" role="dialog" aria-modal="true" aria-label="Expense review"></div>
 <div id="toast" role="status"></div>
 <script>
 
@@ -354,7 +370,7 @@ const S={
   accounts:[], cats:{exp:DEFAULT_EXP.slice(),inc:DEFAULT_INC.slice()}, txns:[],
   lists:[{id:'inbox',name:'Inbox',color:'#2447D6'}], tasks:[], focus:[],
   habits:[], hlog:{},
-  people:[], trips:[], pays:[],
+  people:[], trips:[], pays:[], mcat:{},
   _t:{}
 };
 const A={fired:{},snoozes:{},soundOn:false}; // device-local alarm bookkeeping
@@ -479,7 +495,7 @@ function render(){
   const fn={today:viewToday,tasks:viewTasks,habits:viewHabits,money:viewMoney,carpool:viewCarpool,prefs:viewPrefs}[r];
   v.innerHTML=fn();
   if(r==='tasks'&&UI.mode==='focus') tickFocus();
-  syncWidget();
+  syncWidget(); syncWatch();
 }
 let widgetLast='';
 function syncWidget(){
@@ -488,6 +504,14 @@ function syncWidget(){
   const label=MON[+n.slice(5,7)-1].toUpperCase()+' SPENT';
   if(label+amt===widgetLast) return; widgetLast=label+amt;
   try{window.MineNative.setWidget(label,amt)}catch(e){}
+}
+let watchLast='';
+function syncWatch(){
+  if(!NATIVE) return;
+  const from=ymd(addDays(new Date(),-40));
+  const idx=JSON.stringify(S.txns.filter(t=>t.type==='expense'&&t.date>=from).map(t=>({d:t.date,a:+t.amount,s:t.smsId||''})));
+  if(idx===watchLast) return; watchLast=idx;
+  try{window.MineNative.setExpenseIndex(idx)}catch(e){}
 }
 function applyTheme(){}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2600)}
@@ -936,7 +960,8 @@ function viewMoney(){
     list+=`<div class="txrow" data-act="tx-edit" data-id="${t.id}"><div class="txicon">${esc(CAT_ICON[t.cat]||'•')}</div><div class="grow"><div style="font-weight:600">${esc(t.note||t.cat)}</div><div class="tiny muted">${esc([t.note?t.cat:'',a?a.name:''].filter(Boolean).join(' · '))}</div></div><div class="txamt num neg">${inr(t.amount)}</div></div>`;
   });
   return `<div class="page-head"><div><h1>Expenses</h1><div class="row" style="margin-top:4px"><button class="icon-btn" data-act="month-nav" data-v="-1" aria-label="Previous month">${I.left}</button><b>${MONL[m-1]} ${y}</b><button class="icon-btn" data-act="month-nav" data-v="1" aria-label="Next month">${I.right}</button></div></div>
-    <div class="row wrap"><button class="btn" data-act="acct-manage">Paid with &amp; categories</button><button class="btn" data-act="tx-csv">${I.download} CSV</button></div></div>
+    <div class="row wrap"><button class="btn" data-act="review-open" data-v="week">Review</button><button class="btn" data-act="acct-manage">Paid with</button><button class="btn" data-act="tx-csv" aria-label="Download CSV">${I.download}</button></div></div>
+  ${smsBanner()}
   ${accts}
   <div class="ledger"><div><div class="k">Spent</div><div class="v num">${inr(spent)}</div></div><div><div class="k">Per day</div><div class="v num">${inr(days?spent/days:0)}</div></div><div><div class="k">Last month</div><div class="v num">${inr(prev)}</div></div>
   <div><div class="k">Budget</div>${budget?`<div class="v num ${spent>budget?'neg':''}">${inr(Math.max(0,budget-spent))}</div><div class="bar ${spent>budget?'over':''}" style="margin-top:6px"><i style="width:${Math.min(100,spent/budget*100)}%"></i></div><div class="tiny muted" style="margin-top:3px">${spent>budget?'Over by '+inr(spent-budget):'left of '+inr(budget)}</div>`:`<button class="btn sm" data-act="budget" style="margin-top:6px">Set budget</button>`}</div></div>
@@ -945,6 +970,97 @@ function viewMoney(){
     <div class="panel flush"><div class="panel-head"><h3>Expenses</h3><input class="in" id="tx-search" placeholder="Search" value="${esc(UI.txSearch)}" style="max-width:170px;padding:6px 10px" aria-label="Search expenses"></div>${list||'<div class="empty">No expenses yet. Tap + to log what you spend.</div>'}</div>
   </div>
   <button class="fab" data-act="tx-new" data-v="expense" aria-label="Add expense">${I.plus}</button>`;
+}
+/* ----- bank SMS: expenses not added yet ----- */
+function watchSettings(){try{return JSON.parse(window.MineNative.watchSettings())}catch(e){return {sms:false,smsPerm:false,weekly:true,monthly:true,lastScan:0}}}
+function smsCands(){if(!NATIVE)return [];try{return JSON.parse(window.MineNative.smsCandidates())||[]}catch(e){return []}}
+const dayNum=s=>Math.round(parseYmd(s).getTime()/864e5);
+const merchKey=m=>String(m||'').toLowerCase().replace(/[^a-z0-9@]/g,'');
+const acctByLast4=l=>l?S.accounts.find(a=>a.last4&&String(a.last4)===String(l)):null;
+// Same rule as the 9 pm check: an SMS is covered by an expense of the same amount within a day either side
+function smsUnmatched(){
+  const ex=S.txns.filter(t=>t.type==='expense'), linked=new Set(), used=new Set();
+  ex.forEach(t=>{if(t.smsId){linked.add(t.smsId);used.add(t.id)}});
+  return smsCands().sort((a,b)=>a.ts-b.ts).filter(o=>{
+    if(linked.has(o.id)) return false;
+    const e=ex.find(t=>!used.has(t.id)&&Math.abs(+t.amount-o.amt)<1&&Math.abs(dayNum(t.date)-dayNum(o.date))<=1);
+    if(e){used.add(e.id);return false} return true;
+  }).sort((a,b)=>b.ts-a.ts);
+}
+function smsBanner(){
+  if(!NATIVE) return '';
+  const u=smsUnmatched(); if(!u.length) return '';
+  return `<button class="banner" data-act="sms-review">${I.money}<div class="grow"><b>${u.length} expense${u.length>1?'s':''} not added</b><div class="small">${inr(u.reduce((a,o)=>a+o.amt,0))} from your bank SMS</div></div><span class="go">Review</span></button>`;
+}
+function smsReviewSheet(){
+  const w=watchSettings(), u=smsUnmatched();
+  let body;
+  if(!w.sms) body=`<p class="muted">Mine can read your bank SMS every day at 9 pm and tell you about spending you haven’t added. Messages never leave your phone, and OTPs are skipped.</p><button class="btn primary" data-act="sms-on">Turn on SMS check</button>`;
+  else if(!u.length) body=`<div class="empty">All caught up. Every bank debit from the last 7 days is in your expenses.</div>`;
+  else body=`<p class="small muted" style="margin-top:0">Bank debits from the last 7 days with no matching expense. Add them, or ignore ones that aren’t spending (like moving money to your own account).</p>`+u.map(o=>{const a=acctByLast4(o.last4);return `<div class="smsrow"><div class="row"><div class="txicon">${esc(CAT_ICON[S.mcat[merchKey(o.merchant)]]||'💬')}</div><div class="grow" style="min-width:0"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.merchant||o.sender||'Bank debit')}</div><div class="tiny muted">${fmtDay(o.date)} · ${esc(a?a.name:o.last4?'XX'+o.last4:o.sender||'')}</div></div><div class="txamt num neg">${inr(o.amt)}</div></div>
+    <div class="row" style="justify-content:flex-end;gap:8px;margin-top:8px"><button class="btn sm" data-act="sms-ignore" data-id="${esc(o.id)}">Ignore</button><button class="btn sm primary" data-act="sms-add" data-id="${esc(o.id)}">${I.plus} Add</button></div></div>`}).join('');
+  openModal(sheetHead('Expenses to review')+body+`<div class="sheet-foot">${w.sms?`<button class="btn left" data-act="sms-check">Check messages now</button>`:''}<button class="btn" data-act="close-modal">Close</button></div>`,{type:'sms'});
+}
+function smsAdd(id){
+  const o=smsCands().find(x=>x.id===id); if(!o) return;
+  const a=acctByLast4(o.last4), k=merchKey(o.merchant);
+  openTx(null,'expense',{amount:o.amt,date:o.date,note:o.merchant||'',acc:a?a.id:'',cat:S.mcat[k]||null,smsId:o.id},{mkey:k,fromSms:true});
+}
+window.mineSmsPerm=ok=>{
+  if(ok){toast('SMS check is on. Mine checks every day at 9 pm.');render();if($('#modal').classList.contains('open')&&modalCtx&&modalCtx.type==='sms')smsReviewSheet()}
+  else toast('Mine needs SMS permission. Allow it in Android Settings → Apps → Mine → Permissions.');
+};
+window.nativeSmsReview=()=>{if(location.hash!=='#money')location.hash='money';setTimeout(smsReviewSheet,60)};
+
+/* ----- weekly / monthly review (full screen) ----- */
+const RV={kind:'week',start:null};
+function rvRange(){
+  const b=RV.start||new Date();
+  let s,e;
+  if(RV.kind==='week'){s=startOfWeek(b);e=addDays(s,6)}else{s=new Date(b.getFullYear(),b.getMonth(),1);e=new Date(b.getFullYear(),b.getMonth()+1,0)}
+  const ps=RV.kind==='week'?addDays(s,-7):new Date(s.getFullYear(),s.getMonth()-1,1), pe=RV.kind==='week'?addDays(e,-7):new Date(s.getFullYear(),s.getMonth(),0);
+  return {s:ymd(s),e:ymd(e),ps:ymd(ps),pe:ymd(pe),sd:s,ed:e};
+}
+function renderReview(){
+  const el=$('#review'), r=rvRange(), wk=RV.kind==='week', n=todayS();
+  const inR=(a,b)=>S.txns.filter(t=>t.type==='expense'&&t.date>=a&&t.date<=b);
+  const tx=inR(r.s,r.e), sum=a=>r2(a.reduce((x,t)=>x+ +t.amount,0)), total=sum(tx), prev=sum(inR(r.ps,r.pe)), diff=r2(total-prev);
+  const days=n<r.s?0:n>r.e?dayNum(r.e)-dayNum(r.s)+1:dayNum(n)-dayNum(r.s)+1;
+  const group=fn=>{const m={};tx.forEach(t=>{const k=fn(t);m[k]=(m[k]||0)+ +t.amount});return Object.entries(m).sort((a,b)=>b[1]-a[1])};
+  const bars=(rows,icon)=>rows.length?rows.map(([k,v])=>`<div class="catrow"><span>${icon(k)} ${esc(k)}</span><div class="bar"><i style="width:${v/rows[0][1]*100}%"></i></div><span class="num" style="font-weight:600">${inr(v)} <span class="tiny muted">${total?Math.round(v/total*100):0}%</span></span></div>`).join(''):'<div class="empty">Nothing spent.</div>';
+  const byDay=group(t=>t.date), big=tx.slice().sort((a,b)=>b.amount-a.amount).slice(0,5);
+  const fmtR=wk?`${r.sd.getDate()} ${MON[r.sd.getMonth()]} – ${r.ed.getDate()} ${MON[r.ed.getMonth()]}`:`${MONL[r.sd.getMonth()]} ${r.sd.getFullYear()}`;
+  const unm=NATIVE?smsUnmatched():[];
+  el.innerHTML=`<div class="wrap">
+    <div class="top"><button class="icon-btn" data-act="review-close" aria-label="Close">${I.x}</button><div class="grow"></div>
+      <div class="seg">${[['week','Week'],['month','Month']].map(([k,l])=>`<button data-act="review-kind" data-v="${k}" aria-pressed="${RV.kind===k}">${l}</button>`).join('')}</div></div>
+    <div class="hero"><div class="eyebrow">${wk?'Weekly':'Monthly'} expense review</div>
+      <div class="row" style="justify-content:center;gap:4px;margin-top:4px"><button class="icon-btn" data-act="review-nav" data-v="-1" aria-label="Previous">${I.left}</button><div class="range">${fmtR}</div><button class="icon-btn" data-act="review-nav" data-v="1" aria-label="Next" ${r.e>=n?'disabled style="opacity:.3"':''}>${I.right}</button></div>
+      <div class="total num">${inr(total)}</div>
+      ${prev||total?`<span class="delta ${diff>0?'up':''}">${diff>0?'▲':diff<0?'▼':'='} ${inr(Math.abs(diff))} ${diff>0?'more':diff<0?'less':'same'} than last ${wk?'week':'month'}</span>`:''}
+    </div>
+    ${unm.length?`<button class="banner" data-act="sms-review">${I.money}<div class="grow"><b>${unm.length} expense${unm.length>1?'s':''} not added yet</b><div class="small">${inr(unm.reduce((a,o)=>a+o.amt,0))} from bank SMS isn’t counted above</div></div><span class="go">Review</span></button>`:''}
+    <div class="ledger"><div><div class="k">Expenses</div><div class="v num">${tx.length}</div></div><div><div class="k">Per day</div><div class="v num">${inr(days?total/days:0)}</div></div><div><div class="k">Last ${wk?'week':'month'}</div><div class="v num">${inr(prev)}</div></div><div><div class="k">Biggest day</div><div class="v num">${byDay.length?inr(byDay.sort((a,b)=>b[1]-a[1])[0][1]):'—'}</div>${byDay.length?`<div class="tiny muted">${fmtDay(byDay[0][0])}</div>`:''}</div></div>
+    <div class="panel"><h3 style="margin-bottom:6px">By category</h3>${bars(group(t=>t.cat||'Other'),k=>esc(CAT_ICON[k]||'•'))}</div>
+    <div class="panel"><h3 style="margin-bottom:6px">By payment method</h3>${bars(group(t=>(acctById(t.acc)||{}).name||'Not set'),k=>{const a=S.accounts.find(x=>x.name===k);return a?(a.type==='card'?'💳':a.type==='cash'?'💵':a.type==='wallet'?'📱':'🏦'):'•'})}</div>
+    <div class="panel flush"><div class="panel-head"><h3>Biggest expenses</h3></div>${big.map(t=>`<div class="txrow"><div class="txicon">${esc(CAT_ICON[t.cat]||'•')}</div><div class="grow"><div style="font-weight:600">${esc(t.note||t.cat)}</div><div class="tiny muted">${fmtDay(t.date)}${acctById(t.acc)?' · '+esc(acctById(t.acc).name):''}</div></div><div class="txamt num neg">${inr(t.amount)}</div></div>`).join('')||'<div class="empty">No expenses.</div>'}</div>
+    <button class="btn primary done" data-act="review-close">Done</button>
+  </div>`;
+}
+function openReview(kind,start){RV.kind=kind;RV.start=start||new Date();renderReview();$('#review').classList.add('open');$('#review').scrollTop=0;document.body.classList.add('modal-open')}
+function closeReview(){$('#review').classList.remove('open');document.body.classList.remove('modal-open');try{window.MineNative.reviewClosed()}catch(e){}}
+// from the Sunday / 1st-of-month notification: the week that is ending, or the month that just ended
+window.nativeShowReview=(kind,fromNotif)=>{if($('#modal').classList.contains('open'))closeModal();const d=new Date();openReview(kind,kind==='month'&&fromNotif?new Date(d.getFullYear(),d.getMonth()-1,1):d)};
+
+function watchPanel(){
+  const w=watchSettings();
+  const line=(label,desc,act,on,extra='')=>`<div class="row" style="padding:8px 0;align-items:flex-start"><div class="grow"><div style="font-weight:600">${label}</div><div class="tiny muted">${desc}</div></div>${extra}<button class="btn sm ${on?'primary':''}" data-act="${act}" data-v="${on?'off':'on'}">${on?'On':'Off'}</button></div>`;
+  return `<div class="panel"><h3>Expense checks</h3>
+    ${line('Missed expenses from SMS','Every day at 9 pm, Mine reads your bank SMS and tells you about debits you haven’t added. Nothing leaves your phone.'+(w.lastScan?' Last checked '+fmtDay(ymd(new Date(w.lastScan)))+' '+fmtTime(hhmm(new Date(w.lastScan)))+'.':''),'sms-toggle',w.sms)}
+    ${line('Weekly review','Full screen every Sunday at 8 pm.','watch-weekly',w.weekly,`<button class="btn sm ghost" data-act="review-open" data-v="week">Preview</button>`)}
+    ${line('Monthly review','Full screen on the 1st at 9 am, for the month just ended.','watch-monthly',w.monthly,`<button class="btn sm ghost" data-act="review-open" data-v="month">Preview</button>`)}
+    ${w.sms?`<button class="btn sm" data-act="sms-review" style="margin-top:6px">Review expenses from SMS</button>`:''}
+  </div>`;
 }
 function txEditor(t,isNew){
   const opts=`<option value="">—</option>`+S.accounts.map(a=>`<option value="${a.id}" ${t.acc===a.id?'selected':''}>${esc(a.name)}</option>`).join('');
@@ -955,11 +1071,12 @@ function txEditor(t,isNew){
   <label class="f" for="x-note">Note</label><input class="in" id="x-note" value="${esc(t.note||'')}" placeholder="Swiggy, petrol, electricity bill…">
   <div class="sheet-foot">${!isNew?`<button class="btn danger left" data-act="tx-del" data-id="${t.id}">${I.trash} Delete</button>`:''}<button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" data-act="tx-save">${isNew?'Add':'Save'}</button></div>`;
 }
-function openTx(id,type){
+function openTx(id,type,pre,extra){
   const last=S.txns.slice().sort((a,b)=>(b.created||0)-(a.created||0))[0];
   const t=id?JSON.parse(JSON.stringify(S.txns.find(x=>x.id===id))):{id:uid(),type:'expense',amount:'',acc:(UI.acctFilter!=='all'?UI.acctFilter:(last&&last.acc))||'',cat:null,note:'',date:todayS(),created:Date.now()};
+  if(pre) Object.assign(t,pre);
   if(!t.cat||t.type!=='expense'){t.type='expense';t.cat=S.cats.exp.includes(t.cat)?t.cat:S.cats.exp[0]}
-  openModal(txEditor(t,!id),{type:'tx',tx:t,isNew:!id,origMonth:id?t.date.slice(0,7):null});
+  openModal(txEditor(t,!id),Object.assign({type:'tx',tx:t,isNew:!id,origMonth:id?t.date.slice(0,7):null},extra||{}));
 }
 function readTxForm(){const t=modalCtx.tx;t.amount=$('#x-amt').value;t.acc=$('#x-acc').value;if($('#x-to'))t.to=$('#x-to').value;t.date=$('#x-date').value||todayS();const c=$('#x-cat [aria-pressed="true"]');if(c)t.cat=c.dataset.v;t.note=$('#x-note').value.trim();return t}
 function saveTxFromModal(){
@@ -968,13 +1085,16 @@ function saveTxFromModal(){
   t.amount=v; delete t.to;
   if(c.isNew) S.txns.push(t); else S.txns[S.txns.findIndex(x=>x.id===t.id)]=t;
   const ms=['money','txn_'+t.date.slice(0,7)]; if(c.origMonth&&c.origMonth!==t.date.slice(0,7)) ms.push('txn_'+c.origMonth);
+  if(c.mkey) S.mcat[c.mkey]=t.cat; // remember the category for this merchant next time
   Store.mark(...ms); closeModal(); render(); toast(c.isNew?'Added '+inr(v)+' expense':'Saved');
+  if(c.fromSms&&smsUnmatched().length) setTimeout(smsReviewSheet,250);
 }
 function acctEditor(a){
   const isCard=a.type==='card';
   return sheetHead(a._new?'Add payment method':'Edit payment method')+`
   <label class="f" for="a-name">Name</label><input class="in" id="a-name" value="${esc(a.name||'')}" placeholder="HDFC debit, SBI Card, Cash, GPay" autofocus>
   <label class="f" for="a-type">Type</label><select class="in" id="a-type">${ACCT_TYPES.map(([k,l])=>`<option value="${k}" ${a.type===k?'selected':''}>${l}</option>`).join('')}</select>
+  <label class="f" for="a-last4">Last 4 digits of card / account number</label><input class="in num" id="a-last4" inputmode="numeric" maxlength="4" value="${esc(a.last4||'')}" placeholder="Matches bank SMS to this, e.g. 1234">
   <div id="a-card" class="${isCard?'':'hide'}"><label class="f" for="a-due">Bill due day (1–31)</label><input class="in num" id="a-due" type="number" min="1" max="31" value="${a.dueDay||''}">
   <label class="check"><input type="checkbox" id="a-rem" ${a.remind!==false?'checked':''}> Alarm 2 days before and on the due date</label></div>
   <div class="sheet-foot">${!a._new?`<button class="btn danger left" data-act="acct-del" data-id="${a.id}">${I.trash} Delete</button>`:''}<button class="btn" data-act="acct-manage">Back</button><button class="btn primary" data-act="acct-save">Save</button></div>`;
@@ -1174,6 +1294,7 @@ function viewToday(){
   const recent=S.txns.filter(t=>t.type==='expense').sort((a,b)=>a.date===b.date?(b.created||0)-(a.created||0):a.date<b.date?1:-1).slice(0,5);
   return `<div class="hero"><div class="hero-top"><span class="logo">${LOGO}Mine</span><a class="icon-btn" href="#prefs" aria-label="Settings">${I.gear}</a></div><div class="date">${WD[d.getDay()]} <span>${d.getDate()} ${MON[d.getMonth()]}</span></div><div class="sub">${greet}. ${tasks.length?tasks.length+' task'+(tasks.length>1?'s':'')+' today'+(over?', '+over+' overdue':''):'No tasks due today'}${hs.length?' · '+hd+'/'+hs.length+' habits':''}</div></div>
   ${alarmBanner()}
+  ${smsBanner()}
   <div class="ledger"><div><div class="k">Tasks today</div><div class="v num">${tasks.length}</div></div><div><div class="k">Habits done</div><div class="v num">${hd}/${hs.length}</div></div><div><div class="k">Spent in ${MON[d.getMonth()]}</div><div class="v num">${inr(spent)}</div></div><div><div class="k">Carpool to collect</div><div class="v num pos">${inr(collect)}</div></div></div>
   <div class="grid2"><div>
     <div class="panel"><div class="panel-head"><h3>Today’s tasks</h3><a class="btn sm ghost" href="#tasks" data-act="goto-today-tasks">All tasks</a></div>
@@ -1192,6 +1313,7 @@ function viewPrefs(){
   return `<div class="page-head"><div><h1>Settings</h1><div class="sub"><span class="sync"><i></i>${syncLabel()}</span></div></div></div>
   <div class="grid2"><div>
   ${NATIVE?lockPanel():""}
+  ${NATIVE?watchPanel():""}
   ${NATIVE?nativeAlarmPanel():`<div class="panel"><h3>Alarms</h3>
     <label class="f" for="s-sound">Alarm sound</label><div class="row"><select class="in" id="s-sound" data-set="sound">${SOUNDS.map(([k,l])=>`<option value="${k}" ${st.sound===k?'selected':''}>${l}</option>`).join('')}</select><button class="btn" data-act="test-sound">Test</button></div>
     <div class="frow"><div><label class="f" for="s-allday">Ring time for tasks with no time</label><input class="in" type="time" id="s-allday" data-set="allDayTime" value="${st.allDayTime}"></div><div><label class="f" for="s-snooze">Snooze (minutes)</label><input class="in" type="number" min="1" id="s-snooze" data-set="snooze" value="${st.snooze}"></div></div>
@@ -1243,6 +1365,7 @@ window.nativeAlarmAction=o=>{
 };
 window.mineBack=()=>{
   if($('#modal').classList.contains('open')){closeModal();return true}
+  if($('#review').classList.contains('open')){closeReview();return true}
   if(Q.length){alarmNext();return true}
   if(route()!=='today'){location.hash='today';return true}
   return false;
@@ -1307,6 +1430,18 @@ ui(async e=>{
     case 'month-nav': {const [y,m]=UI.monthYM.split('-').map(Number);UI.monthYM=ymd(new Date(y,m-1+ +v,1)).slice(0,7);render();break}
     case 'acct-filter': UI.acctFilter=v; render(); break;
     case 'tx-new': openTx(null,v); break;
+    case 'sms-review': if($('#review').classList.contains('open'))closeReview(); smsReviewSheet(); break;
+    case 'sms-add': smsAdd(id); break;
+    case 'sms-ignore': try{window.MineNative.smsIgnore(id)}catch(err){} render(); smsReviewSheet(); toast('Ignored'); break;
+    case 'sms-check': {let n=0;try{n=window.MineNative.smsScan()}catch(err){}toast(n?n+' new bank message'+(n>1?'s':'')+' found':'No new bank messages');render();smsReviewSheet();break}
+    case 'sms-on': try{window.MineNative.requestSms()}catch(err){} break;
+    case 'sms-toggle': if(v==='on'){try{window.MineNative.requestSms()}catch(err){}}else{try{window.MineNative.setWatch('sms',false)}catch(err){}render()} break;
+    case 'watch-weekly': try{window.MineNative.setWatch('weekly',v==='on')}catch(err){} render(); break;
+    case 'watch-monthly': try{window.MineNative.setWatch('monthly',v==='on')}catch(err){} render(); break;
+    case 'review-open': openReview(v); break;
+    case 'review-close': closeReview(); break;
+    case 'review-kind': RV.kind=v; RV.start=new Date(); renderReview(); break;
+    case 'review-nav': {const b=RV.start||new Date();RV.start=RV.kind==='week'?addDays(b,7*v):new Date(b.getFullYear(),b.getMonth()+ +v,1);renderReview();$('#review').scrollTop=0;break}
     case 'tx-edit': openTx(id); break;
     case 'tx-save': saveTxFromModal(); break;
     case 'tx-del': confirmBox('Delete this transaction?','Delete',()=>{const t=S.txns.find(x=>x.id===id);S.txns=S.txns.filter(x=>x.id!==id);S.pays.forEach(p=>{if(p.txId===id)delete p.txId});Store.mark('money','carpool','txn_'+t.date.slice(0,7));render()}); break;
@@ -1315,7 +1450,7 @@ ui(async e=>{
     case 'acct-manage': acctManager(); break;
     case 'acct-new': openAcct(); break;
     case 'acct-edit': openAcct(id); break;
-    case 'acct-save': {const a=modalCtx.acct;a.name=$('#a-name').value.trim();if(!a.name)return toast('Give it a name');a.type=$('#a-type').value;if(a.type==='card'){a.dueDay=Math.min(31,Math.max(0,parseInt($('#a-due').value)||0))||null;a.remind=$('#a-rem').checked;a.remSet=Date.now()}const isNew=a._new;delete a._new;if(isNew)S.accounts.push(a);else S.accounts[S.accounts.findIndex(x=>x.id===a.id)]=a;Store.mark('money');render();acctManager();break}
+    case 'acct-save': {const a=modalCtx.acct;a.name=$('#a-name').value.trim();if(!a.name)return toast('Give it a name');a.type=$('#a-type').value;a.last4=($('#a-last4').value.match(/\d{4}/)||[''])[0];if(a.type==='card'){a.dueDay=Math.min(31,Math.max(0,parseInt($('#a-due').value)||0))||null;a.remind=$('#a-rem').checked;a.remSet=Date.now()}const isNew=a._new;delete a._new;if(isNew)S.accounts.push(a);else S.accounts[S.accounts.findIndex(x=>x.id===a.id)]=a;Store.mark('money');render();acctManager();break}
     case 'acct-del': if(S.txns.some(t=>t.acc===id||t.to===id)) return toast('Some expenses use this. Change or delete them first.'); confirmBox('Delete this payment method?','Delete',()=>{S.accounts=S.accounts.filter(a=>a.id!==id);if(UI.acctFilter===id)UI.acctFilter='all';Store.mark('money');render()}); break;
     case 'cat-add': {const k=el.dataset.k,i=$('#cat-new-'+k),c=i.value.trim();if(c&&!S.cats[k].includes(c)){S.cats[k].push(c);Store.mark('money');acctManager()}break}
     case 'cat-del': {const k=el.dataset.k;if(S.cats[k].length<=1)return toast('Keep at least one category');S.cats[k]=S.cats[k].filter(c=>c!==v);Store.mark('money');acctManager();break}
@@ -1372,7 +1507,7 @@ document.addEventListener('change',e=>{
   if(t.id==='a-type'){const c=t.value==='card';$('#a-card').classList.toggle('hide',!c)}
   if(t.id==='f-task') F.taskId=t.value;
   if(t.id==='tr-me') updateTripPreview();
-  if(t.id==='restore-file'&&t.files[0]){const r=new FileReader();r.onload=async()=>{try{let d=JSON.parse(r.result);if(d&&d.mineEnc){const pw=(document.getElementById('bk-pass')||{}).value||'';if(!pw)return toast('Type the backup password above, then restore again');try{d=JSON.parse(await decBackup(d,pw))}catch(e2){return toast('Wrong backup password')}}if(!d||!Array.isArray(d.tasks))throw 0;confirmBox('Replace everything in Mine with this backup?','Restore',()=>{['settings','accounts','cats','txns','lists','tasks','focus','habits','hlog','people','trips','pays'].forEach(k=>{if(k in d)S[k]=d[k]});const ms=[...new Set(S.txns.map(x=>'txn_'+x.date.slice(0,7)))];Store.mark('settings','money','tasks','habits','carpool',...ms);applyTheme();render();toast('Backup restored')})}catch(err){toast('That file isn’t a Mine backup')}};r.readAsText(t.files[0])}
+  if(t.id==='restore-file'&&t.files[0]){const r=new FileReader();r.onload=async()=>{try{let d=JSON.parse(r.result);if(d&&d.mineEnc){const pw=(document.getElementById('bk-pass')||{}).value||'';if(!pw)return toast('Type the backup password above, then restore again');try{d=JSON.parse(await decBackup(d,pw))}catch(e2){return toast('Wrong backup password')}}if(!d||!Array.isArray(d.tasks))throw 0;confirmBox('Replace everything in Mine with this backup?','Restore',()=>{['settings','accounts','cats','txns','lists','tasks','focus','habits','hlog','people','trips','pays','mcat'].forEach(k=>{if(k in d)S[k]=d[k]});const ms=[...new Set(S.txns.map(x=>'txn_'+x.date.slice(0,7)))];Store.mark('settings','money','tasks','habits','carpool',...ms);applyTheme();render();toast('Backup restored')})}catch(err){toast('That file isn’t a Mine backup')}};r.readAsText(t.files[0])}
 });
 document.addEventListener('keydown',e=>{
   if(e.key!=='Enter') return;

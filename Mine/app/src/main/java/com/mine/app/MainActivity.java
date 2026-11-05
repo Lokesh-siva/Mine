@@ -34,6 +34,7 @@ public class MainActivity extends Activity {
     private boolean loaded = false;
     private static final int FILE_REQ = 42;
     private static final int LOCK_REQ = 43;
+    static final int SMS_PERM_REQ = 8;
     private static final long RELOCK_MS = 30_000L;
     private long leftAt = 0;
     private boolean authing = false;
@@ -122,6 +123,7 @@ public class MainActivity extends Activity {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 7);
         }
 
+        ExpenseWatch.scheduleAll(this);
         handleIntent(getIntent());
         if (lockEnabled()) { web.setVisibility(View.INVISIBLE); }
         web.loadUrl("file:///android_asset/index.html");
@@ -209,10 +211,26 @@ public class MainActivity extends Activity {
     }
 
     private void handleIntent(Intent intent) {
-        if (intent != null && ExpenseWidget.ACTION_ADD_EXPENSE.equals(intent.getAction())) {
-            pendingJs = "window.nativeAddExpense&&window.nativeAddExpense()";
+        if (intent != null && ExpenseWatch.ACTION_OPEN_SMS.equals(intent.getAction())) {
+            runJs("window.nativeSmsReview&&window.nativeSmsReview()");
             intent.setAction(Intent.ACTION_MAIN);
-            flushPending();
+            return;
+        }
+        if (intent != null && ExpenseWatch.ACTION_SHOW_REVIEW.equals(intent.getAction())) {
+            String period = "month".equals(intent.getStringExtra("period")) ? "month" : "week";
+            ExpenseWatch.clearReviewNotification(this);
+            // Full screen over the lock screen, like the alarm view, unless App lock is on
+            if (!lockEnabled() && Build.VERSION.SDK_INT >= 27) {
+                setShowWhenLocked(true);
+                setTurnScreenOn(true);
+            }
+            runJs("window.nativeShowReview&&window.nativeShowReview('" + period + "',true)");
+            intent.setAction(Intent.ACTION_MAIN);
+            return;
+        }
+        if (intent != null && ExpenseWidget.ACTION_ADD_EXPENSE.equals(intent.getAction())) {
+            runJs("window.nativeAddExpense&&window.nativeAddExpense()");
+            intent.setAction(Intent.ACTION_MAIN);
             return;
         }
         if (intent == null || !AlarmReceiver.ACTION_DONE.equals(intent.getAction())) return;
@@ -226,6 +244,42 @@ public class MainActivity extends Activity {
         pendingAction = json;
         intent.setAction(Intent.ACTION_MAIN);
         flushPending();
+    }
+
+    private void runJs(String js) {
+        pendingJs = js;
+        flushPending();
+    }
+
+    void reviewClosed() {
+        if (Build.VERSION.SDK_INT >= 27) {
+            setShowWhenLocked(false);
+            setTurnScreenOn(false);
+        }
+    }
+
+    void requestSms() {
+        if (ExpenseWatch.hasSmsPermission(this)) {
+            onSmsPermission(true);
+        } else {
+            requestPermissions(new String[]{Manifest.permission.READ_SMS}, SMS_PERM_REQ);
+        }
+    }
+
+    private void onSmsPermission(boolean granted) {
+        if (granted) {
+            ExpenseWatch.set(this, "sms", true);
+            ExpenseWatch.scan(this);
+        }
+        web.evaluateJavascript("window.mineSmsPerm&&window.mineSmsPerm(" + granted + ")", null);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode == SMS_PERM_REQ) {
+            onSmsPermission(results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED);
+        }
     }
 
     private void flushPending() {

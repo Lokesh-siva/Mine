@@ -114,6 +114,57 @@ public class Bridge {
     }
 
     @JavascriptInterface
+    public String watchSettings() {
+        return ExpenseWatch.settings(activity.getApplicationContext());
+    }
+
+    @JavascriptInterface
+    public void setWatch(String key, boolean on) {
+        if ("weekly".equals(key) || "monthly".equals(key) || "sms".equals(key)) {
+            ExpenseWatch.set(activity.getApplicationContext(), key, on);
+        }
+    }
+
+    @JavascriptInterface
+    public void requestSms() {
+        activity.runOnUiThread(activity::requestSms);
+    }
+
+    @JavascriptInterface
+    public int smsScan() {
+        return ExpenseWatch.scan(activity.getApplicationContext());
+    }
+
+    @JavascriptInterface
+    public String smsCandidates() {
+        return ExpenseWatch.candidates(activity.getApplicationContext());
+    }
+
+    @JavascriptInterface
+    public void smsIgnore(String id) {
+        ExpenseWatch.ignore(activity.getApplicationContext(), id);
+    }
+
+    @JavascriptInterface
+    public void setExpenseIndex(String json) {
+        ExpenseWatch.setExpenses(activity.getApplicationContext(), json);
+    }
+
+    @JavascriptInterface
+    public void reviewClosed() {
+        activity.runOnUiThread(activity::reviewClosed);
+    }
+
+    @JavascriptInterface
+    public void openAppSettings() {
+        activity.runOnUiThread(() -> {
+            try {
+                activity.startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + activity.getPackageName())));
+            } catch (Exception ignored) { }
+        });
+    }
+
+    @JavascriptInterface
     public void setWidget(String label, String amount) {
         ExpenseWidget.save(activity.getApplicationContext(), label, amount);
     }
