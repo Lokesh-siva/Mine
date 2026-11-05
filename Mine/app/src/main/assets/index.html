@@ -605,47 +605,29 @@ function addQuick(raw,defDue){
 }
 
 function viewTasks(){
-  const sel=UI.sel, items=sortTasks(selTasks(sel)), n=todayS();
-  const counts=k=>selTasks(k).length;
-  const smart=[['today','Today'],['tomorrow','Tomorrow'],['week','Next 7 days'],['inbox','Inbox'],['all','All'],['nodate','No date'],['done','Completed']];
-  const side=`<div class="sidelist">
-    ${smart.map(([k,l])=>`<button data-act="sel" data-v="${k}" aria-pressed="${sel===k}">${l}${k!=='done'?`<span class="n">${counts(k)||''}</span>`:''}</button>`).join('')}
-    <div class="grp">Lists</div>
-    ${S.lists.filter(l=>l.id!=='inbox').map(l=>`<button data-act="sel" data-v="list:${l.id}" aria-pressed="${sel==='list:'+l.id}"><i class="dot" style="background:${esc(l.color)}"></i>${esc(l.name)}<span class="n">${counts('list:'+l.id)||''}</span></button>`).join('')}
-    <button data-act="new-list" class="faint">${I.plus} New list</button>
-    ${allTags().length?`<div class="grp">Tags</div>`+allTags().map(g=>`<button data-act="sel" data-v="tag:${esc(g)}" aria-pressed="${sel==='tag:'+g}">#${esc(g)}<span class="n">${counts('tag:'+g)}</span></button>`).join(''):''}
-  </div>`;
-  const chips=`<div class="chips tasks-chips" style="margin-bottom:12px">
-    ${smart.map(([k,l])=>`<button class="chip" data-act="sel" data-v="${k}" aria-pressed="${sel===k}">${l}${k!=='done'&&counts(k)?`<span class="count">${counts(k)}</span>`:''}</button>`).join('')}
-    ${S.lists.filter(l=>l.id!=='inbox').map(l=>`<button class="chip" data-act="sel" data-v="list:${l.id}" aria-pressed="${sel==='list:'+l.id}">${esc(l.name)}</button>`).join('')}
-    ${allTags().map(g=>`<button class="chip" data-act="sel" data-v="tag:${esc(g)}" aria-pressed="${sel==='tag:'+g}">#${esc(g)}</button>`).join('')}
-    <button class="chip" data-act="new-list">+ List</button></div>`;
-  const modes=`<div class="seg" role="group" aria-label="View">${[['list','List'],['matrix','Matrix'],['calendar','Calendar'],['focus','Focus']].map(([k,l])=>`<button data-act="mode" data-v="${k}" aria-pressed="${UI.mode===k}">${l}</button>`).join('')}</div>`;
+  if(UI.mode!=='calendar') UI.mode='list';
+  if(UI.sel!=='tomorrow') UI.sel='today';
+  const sel=UI.sel, n=todayS(), tm=ymd(addDays(new Date(),1));
+  const pick=k=>k==='tomorrow'?selTasks('tomorrow'):selTasks('today').concat(selTasks('nodate'));
+  const items=sortTasks(pick(sel));
+  const modes=`<div class="seg" role="group" aria-label="View">${[['list','List'],['calendar','Calendar']].map(([k,l])=>`<button data-act="mode" data-v="${k}" aria-pressed="${UI.mode===k}">${l}</button>`).join('')}</div>`;
   let body='';
-  if(UI.mode==='focus') body=focusView();
-  else if(UI.mode==='calendar') body=calendarView();
-  else if(UI.mode==='matrix') body=matrixView(sel==='done'?selTasks('all'):items);
+  if(UI.mode==='calendar') body=calendarView();
   else {
-    const quick=sel==='done'?'':`<div class="quick"><input id="quick" placeholder="Add a task to ${esc(selName(sel))}" autocomplete="off" aria-label="Add a task"><button class="btn primary sm" data-act="quick-add">Add</button></div><div class="quick-hint" id="quick-hint">${quickHint('')}</div>`;
+    const chips=`<div class="chips tasks-chips" style="margin-bottom:12px">${[['today','Today'],['tomorrow','Tomorrow']].map(([k,l])=>{const c=pick(k).length;return `<button class="chip" data-act="sel" data-v="${k}" aria-pressed="${sel===k}">${l}${c?`<span class="count">${c}</span>`:''}</button>`}).join('')}</div>`;
+    const quick=`<div class="quick"><input id="quick" placeholder="Add a task for ${sel==='tomorrow'?'tomorrow':'today'}" autocomplete="off" aria-label="Add a task"><button class="btn primary sm" data-act="quick-add">Add</button></div><div class="quick-hint" id="quick-hint">${quickHint('')}</div>`;
     let list='';
-    if(!items.length) list=`<div class="empty">${sel==='done'?'Completed tasks show up here.':'Nothing here. Add a task above, type a time like “5pm” and it gets an alarm.'}</div>`;
-    else if(sel==='done') list=items.slice(0,200).map(t=>taskRow(t)).join('')+(items.length>2?`<div style="text-align:center;margin-top:10px"><button class="btn sm danger" data-act="clear-done">Delete completed tasks</button></div>`:'');
+    if(!items.length) list=`<div class="empty">Nothing ${sel==='tomorrow'?'for tomorrow':'for today'}. Add a task above, type a time like “5pm” and it gets an alarm.</div>`;
     else {
-      const tm=ymd(addDays(new Date(),1)), wk=ymd(addDays(new Date(),6));
-      const groups=[['Overdue',t=>isOver(t),'over'],['Today',t=>t.due===n&&!isOver(t)],['Tomorrow',t=>t.due===tm],['Next 7 days',t=>t.due>tm&&t.due<=wk],['Later',t=>t.due>wk],['No date',t=>!t.due]];
+      const groups=sel==='tomorrow'?[['Tomorrow',()=>true]]:[['Overdue',t=>isOver(t),'over'],['Today',t=>t.due===n],['No date',t=>!t.due]];
       const used=new Set();
-      groups.forEach(([g,f,cls])=>{const gi=items.filter(t=>!used.has(t.id)&&f(t));gi.forEach(t=>used.add(t.id));if(gi.length) list+=`<div class="group-title ${cls||''}">${g} <span class="faint">${gi.length}</span></div>`+gi.map(t=>taskRow(t,{noList:sel.startsWith('list:')})).join('')});
+      groups.forEach(([g,f,cls])=>{const gi=items.filter(t=>!used.has(t.id)&&f(t));gi.forEach(t=>used.add(t.id));if(gi.length) list+=`<div class="group-title ${cls||''}">${g} <span class="faint">${gi.length}</span></div>`+gi.map(t=>taskRow(t)).join('')});
     }
-    const listTools=sel.startsWith('list:')?`<div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn sm" data-act="edit-list" data-id="${sel.slice(5)}">${I.edit} Edit list</button></div>`:'';
-    body=quick+list+listTools;
+    body=chips+quick+list;
   }
-  return `<div class="page-head"><div><h1>${UI.mode==='focus'?'Focus':UI.mode==='calendar'?'Calendar':esc(selName(sel))}</h1><div class="sub">${UI.mode==='list'?items.length+' '+(sel==='done'?'completed':'open')+' task'+(items.length===1?'':'s'):UI.mode==='matrix'?'Sorted by priority':''}</div></div>${modes}</div>
-  <div class="tasks-layout">${UI.mode==='list'||UI.mode==='matrix'?side:'<div class="sidelist"></div>'}<div>${UI.mode==='list'||UI.mode==='matrix'?chips:''}${body}</div></div>
-  ${UI.mode!=='focus'?`<button class="fab" data-act="new-task" aria-label="New task">${I.plus}</button>`:''}`;
-}
-function matrixView(items){
-  const q=[[3,'Urgent and important','var(--p3)'],[2,'Important, not urgent','var(--p2)'],[1,'Urgent, not important','var(--p1)'],[0,'Neither','var(--faint)']];
-  return `<div class="matrix">${q.map(([p,l,c])=>{const its=sortTasks(items.filter(t=>(t.prio||0)===p));return `<div class="quad"><h3><i style="background:${c}"></i>${l} <span class="faint" style="font-weight:500">${its.length}</span></h3>${its.map(t=>taskRow(t)).join('')||'<div class="faint small">Empty</div>'}<button class="btn ghost sm" data-act="new-task" data-prio="${p}">${I.plus} Add</button></div>`}).join('')}</div>`;
+  return `<div class="page-head"><div><h1>${UI.mode==='calendar'?'Calendar':'Tasks'}</h1><div class="sub">${UI.mode==='list'?items.length+' open task'+(items.length===1?'':'s'):''}</div></div>${modes}</div>
+  <div class="tasks-layout"><div class="sidelist"></div><div>${body}</div></div>
+  <button class="fab" data-act="new-task" aria-label="New task">${I.plus}</button>`;
 }
 function calendarView(){
   const now=new Date(); if(!UI.calMonth) UI.calMonth=ymd(new Date(now.getFullYear(),now.getMonth(),1));
@@ -722,7 +704,7 @@ function taskEditor(t,isNew){
 }
 function subRow(s){return `<div class="st" data-sid="${s.id}"><input type="checkbox" ${s.done?'checked':''} aria-label="Done"><input type="text" class="in" value="${esc(s.t)}" aria-label="Subtask"><button class="icon-btn" data-act="del-sub" aria-label="Remove subtask">${I.x}</button></div>`}
 function openTask(id,preset={}){
-  const t=id?JSON.parse(JSON.stringify(S.tasks.find(x=>x.id===id))):Object.assign({id:uid(),title:'',notes:'',list:UI.sel.startsWith('list:')?UI.sel.slice(5):'inbox',prio:0,due:(UI.sel==='today'?todayS():null),time:null,rem:[0],repeat:null,tags:UI.sel.startsWith('tag:')?[UI.sel.slice(4)]:[],subs:[],done:false,created:Date.now()},preset);
+  const t=id?JSON.parse(JSON.stringify(S.tasks.find(x=>x.id===id))):Object.assign({id:uid(),title:'',notes:'',list:UI.sel.startsWith('list:')?UI.sel.slice(5):'inbox',prio:0,due:(UI.sel==='tomorrow'?ymd(addDays(new Date(),1)):UI.sel==='today'?todayS():null),time:null,rem:[0],repeat:null,tags:UI.sel.startsWith('tag:')?[UI.sel.slice(4)]:[],subs:[],done:false,created:Date.now()},preset);
   openModal(taskEditor(t,!id),{type:'task',task:t,isNew:!id});
 }
 function saveTaskFromModal(){
@@ -914,13 +896,6 @@ function habitDetail(id,ym){
 /* ================= money ================= */
 const ACCT_TYPES=[['bank','Bank account'],['card','Credit card'],['cash','Cash'],['wallet','Wallet / UPI']];
 const acctById=id=>S.accounts.find(a=>a.id===id);
-function balances(){
-  const b={}; S.accounts.forEach(a=>b[a.id]=a.type==='card'?-Number(a.opening||0):Number(a.opening||0));
-  S.txns.forEach(t=>{const v=Number(t.amount)||0;if(!(t.acc in b))return;
-    if(t.type==='expense') b[t.acc]-=v; else if(t.type==='income') b[t.acc]+=v;
-    else if(t.type==='transfer'){b[t.acc]-=v;if(t.to in b)b[t.to]+=v}});
-  Object.keys(b).forEach(k=>b[k]=r2(b[k])); return b;
-}
 function nextDue(a){
   if(a.type!=='card'||!a.dueDay) return null;
   const now=new Date(); const mk=(y,m)=>{const last=new Date(y,m+1,0).getDate();return new Date(y,m,Math.min(a.dueDay,last))};
@@ -929,90 +904,80 @@ function nextDue(a){
 function monthTx(ym){return S.txns.filter(t=>t.date.slice(0,7)===ym)}
 function viewMoney(){
   if(!UI.monthYM) UI.monthYM=todayS().slice(0,7);
-  const ym=UI.monthYM,[y,m]=ym.split('-').map(Number), bal=balances();
-  let tx=monthTx(ym); const af=UI.acctFilter;
-  const fx=af==='all'?tx:tx.filter(t=>t.acc===af||t.to===af);
-  const spent=r2(fx.filter(t=>t.type==='expense').reduce((a,t)=>a+ +t.amount,0)), income=r2(fx.filter(t=>t.type==='income').reduce((a,t)=>a+ +t.amount,0));
+  const ym=UI.monthYM,[y,m]=ym.split('-').map(Number);
+  const exp=monthTx(ym).filter(t=>t.type==='expense'); const af=UI.acctFilter;
+  const fx=af==='all'?exp:exp.filter(t=>t.acc===af);
+  const sum=a=>r2(a.reduce((x,t)=>x+ +t.amount,0));
+  const spent=sum(fx);
+  const prevYM=ymd(new Date(y,m-2,1)).slice(0,7), prev=sum(monthTx(prevYM).filter(t=>t.type==='expense'&&(af==='all'||t.acc===af)));
+  const days=ym===todayS().slice(0,7)?new Date().getDate():new Date(y,m,0).getDate();
   const budget=+S.settings.budget||0;
-  const cats={}; fx.filter(t=>t.type==='expense').forEach(t=>cats[t.cat]=(cats[t.cat]||0)+ +t.amount);
+  const cats={}; fx.forEach(t=>cats[t.cat]=(cats[t.cat]||0)+ +t.amount);
   const catList=Object.entries(cats).sort((a,b)=>b[1]-a[1]); const maxC=catList.length?catList[0][1]:1;
   const q=UI.txSearch.toLowerCase();
   const shown=fx.filter(t=>!q||(t.note||'').toLowerCase().includes(q)||(t.cat||'').toLowerCase().includes(q)||String(t.amount).includes(q)).sort((a,b)=>a.date===b.date?(b.created||0)-(a.created||0):a.date<b.date?1:-1);
-  const net=bal?Object.entries(bal).reduce((a,[k,v])=>a+v,0):0;
   const accts=S.accounts.length?`<div class="accts">
-    <button class="acct" data-act="acct-filter" data-v="all" aria-pressed="${af==='all'}"><div class="t">All accounts</div><div class="n">Net balance</div><div class="b num ${net<0?'neg':''}">${inr(net)}</div></button>
-    ${S.accounts.map(a=>{const v=bal[a.id]||0;const due=nextDue(a);const isCard=a.type==='card';return `<button class="acct ${isCard?'card':''}" data-act="acct-filter" data-v="${a.id}" aria-pressed="${af===a.id}"><div class="t">${ACCT_TYPES.find(x=>x[0]===a.type)[1]}</div><div class="n">${esc(a.name)}</div>
-      <div class="b num ${isCard?(v<0?'neg':''):(v<0?'neg':'')}">${isCard?inr(Math.max(0,-v)):inr(v)}</div>
-      <div class="tiny muted">${isCard?(a.limit?'Outstanding of '+inr(a.limit):'Outstanding')+(due&&-v>0?' · due '+fmtDay(ymd(due)):''):'Balance'}</div></button>`}).join('')}
-  </div>`:`<div class="panel"><div class="row"><div class="grow"><h3>Add your accounts first</h3><div class="muted small">Bank accounts, credit cards, cash and UPI wallets. Each one keeps its own balance.</div></div><button class="btn primary" data-act="acct-new">${I.plus} Add account</button></div></div>`;
+    <button class="acct" data-act="acct-filter" data-v="all" aria-pressed="${af==='all'}"><div class="t">All</div><div class="n">Everything</div><div class="b num">${inr(sum(exp))}</div><div class="tiny muted">Spent</div></button>
+    ${S.accounts.map(a=>`<button class="acct ${a.type==='card'?'card':''}" data-act="acct-filter" data-v="${a.id}" aria-pressed="${af===a.id}"><div class="t">${ACCT_TYPES.find(x=>x[0]===a.type)[1]}</div><div class="n">${esc(a.name)}</div><div class="b num">${inr(sum(exp.filter(t=>t.acc===a.id)))}</div><div class="tiny muted">Spent</div></button>`).join('')}
+  </div>`:'';
   let list=''; let lastD='';
   shown.slice(0,300).forEach(t=>{
-    if(t.date!==lastD){const dayTot=shown.filter(x=>x.date===t.date&&x.type==='expense').reduce((a,x)=>a+ +x.amount,0);list+=`<div class="datehead"><span>${fmtDay(t.date)}</span><span class="num">${dayTot?inr(dayTot):''}</span></div>`;lastD=t.date}
-    const a=acctById(t.acc), to=acctById(t.to);
-    const sign=t.type==='expense'?'neg':t.type==='income'?'pos':'';
-    list+=`<div class="txrow" data-act="tx-edit" data-id="${t.id}"><div class="txicon">${t.type==='transfer'?'⇄':esc(CAT_ICON[t.cat]||'•')}</div><div class="grow"><div style="font-weight:600">${esc(t.note||(t.type==='transfer'?'Transfer':t.cat))}</div><div class="tiny muted">${t.type==='transfer'?esc((a?a.name:'?')+' → '+(to?to.name:'?')):esc((t.note?t.cat+' · ':'')+(a?a.name:'Unknown account'))}</div></div><div class="txamt num ${sign}">${t.type==='expense'?'−':t.type==='income'?'+':''}${inr(t.amount).replace('−','')}</div></div>`;
+    if(t.date!==lastD){list+=`<div class="datehead"><span>${fmtDay(t.date)}</span><span class="num">${inr(sum(shown.filter(x=>x.date===t.date)))}</span></div>`;lastD=t.date}
+    const a=acctById(t.acc);
+    list+=`<div class="txrow" data-act="tx-edit" data-id="${t.id}"><div class="txicon">${esc(CAT_ICON[t.cat]||'•')}</div><div class="grow"><div style="font-weight:600">${esc(t.note||t.cat)}</div><div class="tiny muted">${esc([t.note?t.cat:'',a?a.name:''].filter(Boolean).join(' · '))}</div></div><div class="txamt num neg">${inr(t.amount)}</div></div>`;
   });
-  return `<div class="page-head"><div><h1>Money</h1><div class="row" style="margin-top:4px"><button class="icon-btn" data-act="month-nav" data-v="-1" aria-label="Previous month">${I.left}</button><b>${MONL[m-1]} ${y}</b><button class="icon-btn" data-act="month-nav" data-v="1" aria-label="Next month">${I.right}</button></div></div>
-    <div class="row wrap"><button class="btn" data-act="acct-manage">Accounts</button><button class="btn" data-act="tx-csv">${I.download} CSV</button></div></div>
+  return `<div class="page-head"><div><h1>Expenses</h1><div class="row" style="margin-top:4px"><button class="icon-btn" data-act="month-nav" data-v="-1" aria-label="Previous month">${I.left}</button><b>${MONL[m-1]} ${y}</b><button class="icon-btn" data-act="month-nav" data-v="1" aria-label="Next month">${I.right}</button></div></div>
+    <div class="row wrap"><button class="btn" data-act="acct-manage">Paid with &amp; categories</button><button class="btn" data-act="tx-csv">${I.download} CSV</button></div></div>
   ${accts}
-  <div class="ledger"><div><div class="k">Spent</div><div class="v num">${inr(spent)}</div></div><div><div class="k">Income</div><div class="v num pos">${inr(income)}</div></div><div><div class="k">Left over</div><div class="v num ${income-spent<0?'neg':''}">${inr(income-spent)}</div></div>
+  <div class="ledger"><div><div class="k">Spent</div><div class="v num">${inr(spent)}</div></div><div><div class="k">Per day</div><div class="v num">${inr(days?spent/days:0)}</div></div><div><div class="k">Last month</div><div class="v num">${inr(prev)}</div></div>
   <div><div class="k">Budget</div>${budget?`<div class="v num ${spent>budget?'neg':''}">${inr(Math.max(0,budget-spent))}</div><div class="bar ${spent>budget?'over':''}" style="margin-top:6px"><i style="width:${Math.min(100,spent/budget*100)}%"></i></div><div class="tiny muted" style="margin-top:3px">${spent>budget?'Over by '+inr(spent-budget):'left of '+inr(budget)}</div>`:`<button class="btn sm" data-act="budget" style="margin-top:6px">Set budget</button>`}</div></div>
   <div class="grid2">
     <div class="panel"><div class="panel-head"><h3>Where it went</h3>${budget?`<button class="btn sm ghost" data-act="budget">Budget</button>`:''}</div>${catList.length?catList.map(([c,v])=>`<div class="catrow"><span>${esc(CAT_ICON[c]||'•')} ${esc(c)}</span><div class="bar"><i style="width:${v/maxC*100}%"></i></div><span class="num" style="font-weight:600">${inr(v)}</span></div>`).join(''):'<div class="empty">No spending recorded this month.</div>'}</div>
-    <div class="panel flush"><div class="panel-head"><h3>Transactions</h3><input class="in" id="tx-search" placeholder="Search" value="${esc(UI.txSearch)}" style="max-width:170px;padding:6px 10px" aria-label="Search transactions"></div>${list||'<div class="empty">No transactions yet. Tap + to log what you spend.</div>'}</div>
+    <div class="panel flush"><div class="panel-head"><h3>Expenses</h3><input class="in" id="tx-search" placeholder="Search" value="${esc(UI.txSearch)}" style="max-width:170px;padding:6px 10px" aria-label="Search expenses"></div>${list||'<div class="empty">No expenses yet. Tap + to log what you spend.</div>'}</div>
   </div>
   <button class="fab" data-act="tx-new" data-v="expense" aria-label="Add expense">${I.plus}</button>`;
 }
 function txEditor(t,isNew){
-  const cats=t.type==='income'?S.cats.inc:S.cats.exp;
-  const opts=sel=>S.accounts.map(a=>`<option value="${a.id}" ${sel===a.id?'selected':''}>${esc(a.name)}</option>`).join('');
-  return sheetHead(isNew?'Add transaction':'Edit transaction')+`
-  <div class="seg" id="x-type">${[['expense','Expense'],['income','Income'],['transfer','Transfer / card payment']].map(([k,l])=>`<button type="button" data-act="x-type" data-v="${k}" aria-pressed="${t.type===k}">${l}</button>`).join('')}</div>
+  const opts=`<option value="">—</option>`+S.accounts.map(a=>`<option value="${a.id}" ${t.acc===a.id?'selected':''}>${esc(a.name)}</option>`).join('');
+  return sheetHead(isNew?'Add expense':'Edit expense')+`
   <label class="f" for="x-amt">Amount (₹)</label><input class="in big num" id="x-amt" type="number" inputmode="decimal" step="0.01" min="0" value="${t.amount||''}" placeholder="0" autofocus>
-  <div class="frow"><div><label class="f" for="x-acc">${t.type==='transfer'?'From':'Account'}</label><select class="in" id="x-acc">${opts(t.acc)}</select></div>
-  ${t.type==='transfer'?`<div><label class="f" for="x-to">To</label><select class="in" id="x-to">${opts(t.to)}</select></div>`:`<div><label class="f" for="x-date">Date</label><input class="in" type="date" id="x-date" value="${t.date}"></div>`}</div>
-  ${t.type==='transfer'?`<label class="f" for="x-date">Date</label><input class="in" type="date" id="x-date" value="${t.date}">`:`<label class="f">Category</label><div class="catpick" id="x-cat">${cats.map(c=>`<button type="button" data-act="tog1" data-v="${esc(c)}" aria-pressed="${t.cat===c}">${esc(CAT_ICON[c]||'')} ${esc(c)}</button>`).join('')}</div>`}
-  <label class="f" for="x-note">Note</label><input class="in" id="x-note" value="${esc(t.note||'')}" placeholder="${t.type==='expense'?'Swiggy, petrol, electricity bill…':t.type==='income'?'October salary':'Paid HDFC card bill'}">
+  <div class="frow"><div><label class="f" for="x-date">Date</label><input class="in" type="date" id="x-date" value="${t.date}"></div><div><label class="f" for="x-acc">Paid with</label><select class="in" id="x-acc">${opts}</select></div></div>
+  <label class="f">Category</label><div class="catpick" id="x-cat">${S.cats.exp.map(c=>`<button type="button" data-act="tog1" data-v="${esc(c)}" aria-pressed="${t.cat===c}">${esc(CAT_ICON[c]||'')} ${esc(c)}</button>`).join('')}</div>
+  <label class="f" for="x-note">Note</label><input class="in" id="x-note" value="${esc(t.note||'')}" placeholder="Swiggy, petrol, electricity bill…">
   <div class="sheet-foot">${!isNew?`<button class="btn danger left" data-act="tx-del" data-id="${t.id}">${I.trash} Delete</button>`:''}<button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" data-act="tx-save">${isNew?'Add':'Save'}</button></div>`;
 }
 function openTx(id,type){
-  if(!S.accounts.length){toast('Add an account first');return openAcct()}
   const last=S.txns.slice().sort((a,b)=>(b.created||0)-(a.created||0))[0];
-  const t=id?JSON.parse(JSON.stringify(S.txns.find(x=>x.id===id))):{id:uid(),type:type||'expense',amount:'',acc:(UI.acctFilter!=='all'?UI.acctFilter:(last&&last.acc))||S.accounts[0].id,to:(S.accounts.find(a=>a.type==='card')||S.accounts[1]||S.accounts[0]).id,cat:null,note:'',date:todayS(),created:Date.now()};
-  if(!t.cat) t.cat=t.type==='income'?S.cats.inc[0]:S.cats.exp[0];
+  const t=id?JSON.parse(JSON.stringify(S.txns.find(x=>x.id===id))):{id:uid(),type:'expense',amount:'',acc:(UI.acctFilter!=='all'?UI.acctFilter:(last&&last.acc))||'',cat:null,note:'',date:todayS(),created:Date.now()};
+  if(!t.cat||t.type!=='expense'){t.type='expense';t.cat=S.cats.exp.includes(t.cat)?t.cat:S.cats.exp[0]}
   openModal(txEditor(t,!id),{type:'tx',tx:t,isNew:!id,origMonth:id?t.date.slice(0,7):null});
 }
 function readTxForm(){const t=modalCtx.tx;t.amount=$('#x-amt').value;t.acc=$('#x-acc').value;if($('#x-to'))t.to=$('#x-to').value;t.date=$('#x-date').value||todayS();const c=$('#x-cat [aria-pressed="true"]');if(c)t.cat=c.dataset.v;t.note=$('#x-note').value.trim();return t}
 function saveTxFromModal(){
   const c=modalCtx,t=readTxForm(); const v=r2(t.amount);
   if(!(v>0)){$('#x-amt').focus();return toast('Enter an amount')}
-  if(t.type==='transfer'&&t.acc===t.to) return toast('Pick two different accounts');
-  t.amount=v; if(t.type==='transfer') delete t.cat; else delete t.to;
+  t.amount=v; delete t.to;
   if(c.isNew) S.txns.push(t); else S.txns[S.txns.findIndex(x=>x.id===t.id)]=t;
   const ms=['money','txn_'+t.date.slice(0,7)]; if(c.origMonth&&c.origMonth!==t.date.slice(0,7)) ms.push('txn_'+c.origMonth);
-  Store.mark(...ms); closeModal(); render(); toast(c.isNew?'Added '+inr(v):'Saved');
+  Store.mark(...ms); closeModal(); render(); toast(c.isNew?'Added '+inr(v)+' expense':'Saved');
 }
 function acctEditor(a){
   const isCard=a.type==='card';
-  return sheetHead(a._new?'Add account':'Edit account')+`
-  <label class="f" for="a-name">Name</label><input class="in" id="a-name" value="${esc(a.name||'')}" placeholder="HDFC Savings, SBI Card, Cash" autofocus>
+  return sheetHead(a._new?'Add payment method':'Edit payment method')+`
+  <label class="f" for="a-name">Name</label><input class="in" id="a-name" value="${esc(a.name||'')}" placeholder="HDFC debit, SBI Card, Cash, GPay" autofocus>
   <label class="f" for="a-type">Type</label><select class="in" id="a-type">${ACCT_TYPES.map(([k,l])=>`<option value="${k}" ${a.type===k?'selected':''}>${l}</option>`).join('')}</select>
-  <label class="f" for="a-open" id="a-open-l">${isCard?'Amount outstanding right now (₹)':'Current balance (₹)'}</label><input class="in num" id="a-open" type="number" step="0.01" value="${a.opening??''}" placeholder="0">
-  <div id="a-card" class="${isCard?'':'hide'}"><div class="frow"><div><label class="f" for="a-limit">Credit limit (₹)</label><input class="in num" id="a-limit" type="number" value="${a.limit||''}"></div><div><label class="f" for="a-due">Bill due day (1–31)</label><input class="in num" id="a-due" type="number" min="1" max="31" value="${a.dueDay||''}"></div></div>
+  <div id="a-card" class="${isCard?'':'hide'}"><label class="f" for="a-due">Bill due day (1–31)</label><input class="in num" id="a-due" type="number" min="1" max="31" value="${a.dueDay||''}">
   <label class="check"><input type="checkbox" id="a-rem" ${a.remind!==false?'checked':''}> Alarm 2 days before and on the due date</label></div>
   <div class="sheet-foot">${!a._new?`<button class="btn danger left" data-act="acct-del" data-id="${a.id}">${I.trash} Delete</button>`:''}<button class="btn" data-act="acct-manage">Back</button><button class="btn primary" data-act="acct-save">Save</button></div>`;
 }
 function openAcct(id){const a=id?JSON.parse(JSON.stringify(acctById(id))):{_new:true,id:uid(),name:'',type:'bank',opening:'',remind:true};openModal(acctEditor(a),{type:'acct',acct:a})}
 function acctManager(){
-  const bal=balances();
-  openModal(sheetHead('Accounts & categories')+`
-  ${S.accounts.map(a=>`<div class="txrow" data-act="acct-edit" data-id="${a.id}" style="padding:10px 4px"><div class="txicon">${a.type==='card'?'💳':a.type==='cash'?'💵':a.type==='wallet'?'📱':'🏦'}</div><div class="grow"><b>${esc(a.name)}</b><div class="tiny muted">${ACCT_TYPES.find(x=>x[0]===a.type)[1]}</div></div><div class="txamt num">${a.type==='card'?inr(Math.max(0,-(bal[a.id]||0)))+' due':inr(bal[a.id]||0)}</div></div>`).join('')||'<div class="empty">No accounts yet.</div>'}
-  <button class="btn" data-act="acct-new" style="margin-top:8px">${I.plus} Add account</button>
+  openModal(sheetHead('Paid with & categories')+`
+  ${S.accounts.map(a=>`<div class="txrow" data-act="acct-edit" data-id="${a.id}" style="padding:10px 4px"><div class="txicon">${a.type==='card'?'💳':a.type==='cash'?'💵':a.type==='wallet'?'📱':'🏦'}</div><div class="grow"><b>${esc(a.name)}</b><div class="tiny muted">${ACCT_TYPES.find(x=>x[0]===a.type)[1]}</div></div></div>`).join('')||'<div class="empty">Optional: add cards, bank accounts or UPI to see what you spent on each.</div>'}
+  <button class="btn" data-act="acct-new" style="margin-top:8px">${I.plus} Add payment method</button>
   <div class="divider" style="margin:18px 0"></div>
   <h3>Spending categories</h3><div class="catpick" style="margin-top:8px">${S.cats.exp.map(c=>`<button data-act="cat-del" data-k="exp" data-v="${esc(c)}" title="Remove">${esc(c)} ✕</button>`).join('')}</div>
   <div class="row" style="margin-top:8px"><input class="in" id="cat-new-exp" placeholder="New spending category"><button class="btn sm" data-act="cat-add" data-k="exp">Add</button></div>
-  <h3 style="margin-top:16px">Income categories</h3><div class="catpick" style="margin-top:8px">${S.cats.inc.map(c=>`<button data-act="cat-del" data-k="inc" data-v="${esc(c)}" title="Remove">${esc(c)} ✕</button>`).join('')}</div>
-  <div class="row" style="margin-top:8px"><input class="in" id="cat-new-inc" placeholder="New income category"><button class="btn sm" data-act="cat-add" data-k="inc">Add</button></div>
   <div class="sheet-foot"><button class="btn primary" data-act="close-modal">Done</button></div>`,{type:'acctman'});
 }
 
@@ -1083,7 +1048,6 @@ function payEditor(p,isNew){
   <label class="f" for="py-person">From</label><select class="in" id="py-person">${S.people.map(x=>`<option value="${x.id}" ${p.person===x.id?'selected':''}>${esc(x.name)} (owes ${inr(Math.max(0,o[x.id]||0))})</option>`).join('')}</select>
   <label class="f" for="py-amt">Amount (₹)</label><input class="in big num" id="py-amt" type="number" step="0.01" value="${p.amount||''}" autofocus>
   <div class="frow"><div><label class="f" for="py-date">Date</label><input class="in" type="date" id="py-date" value="${p.date}"></div><div><label class="f" for="py-mode">Paid by</label><select class="in" id="py-mode">${['UPI','Cash','Bank transfer','Other'].map(m=>`<option ${p.mode===m?'selected':''}>${m}</option>`).join('')}</select></div></div>
-  ${S.accounts.length?`<label class="check"><input type="checkbox" id="py-link" ${p.txId||isNew?'checked':''}> Also add as income in Money</label><select class="in" id="py-acc">${S.accounts.filter(a=>a.type!=='card').map(a=>`<option value="${a.id}" ${p.acc===a.id?'selected':''}>${esc(a.name)}</option>`).join('')}</select>`:''}
   <div class="sheet-foot">${!isNew?`<button class="btn danger left" data-act="cp-pay-del" data-id="${p.id}">${I.trash} Delete</button>`:''}<button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" data-act="cp-pay-save">Save payment</button></div>`;
 }
 function openPay(id,personId){
@@ -1097,10 +1061,8 @@ function savePay(){
   const c=modalCtx,p=c.pay; p.person=$('#py-person').value; p.amount=r2($('#py-amt').value); p.date=$('#py-date').value||todayS(); p.mode=$('#py-mode').value;
   if(!(p.amount>0)) return toast('Enter an amount');
   const marks=['carpool'];
-  const link=$('#py-link')&&$('#py-link').checked, accSel=$('#py-acc');
   const oldTx=p.txId&&S.txns.find(t=>t.id===p.txId);
   if(oldTx){marks.push('txn_'+oldTx.date.slice(0,7));S.txns=S.txns.filter(t=>t.id!==oldTx.id);delete p.txId}
-  if(link&&accSel&&accSel.value){const t={id:uid(),type:'income',amount:p.amount,acc:accSel.value,cat:S.cats.inc.includes('Carpool')?'Carpool':S.cats.inc[0],note:'Carpool: '+(personById(p.person)||{}).name,date:p.date,created:Date.now()};S.txns.push(t);p.txId=t.id;p.acc=accSel.value;marks.push('money','txn_'+p.date.slice(0,7))}
   if(c.isNew) S.pays.push(p); else S.pays[S.pays.findIndex(x=>x.id===p.id)]=p;
   Store.mark(...new Set(marks)); closeModal(); render(); toast('Payment recorded');
 }
@@ -1143,8 +1105,7 @@ function upcomingAlarms(fromMs,toMs){
   S.tasks.forEach(t=>{if(t.done||!t.due)return;const base=taskBase(t);(t.rem||[]).forEach(m=>{const at=new Date(base.getTime()-m*60000);push(t.id+'@'+t.due+'T'+(t.time||'')+'@'+m,'task',t.id,t.title,m?(REM_OPTS.find(r=>r[0]===m)||[,''])[1].replace(' before',' before it’s due'):(t.time?'Due now':'Due today'),at,(t.remSet||t.created||0)-60000)})});
   const days=[];for(let d=new Date(fromMs-86400000);d.getTime()<toMs+86400000;d=addDays(d,1))days.push(new Date(d.getFullYear(),d.getMonth(),d.getDate()));
   S.habits.filter(h=>!h.archived).forEach(h=>days.forEach(d=>{const s=ymd(d);if(!scheduled(h,d)&&h.freq!=='weekly')return;if(doneOn(h,s))return;if(h.freq==='weekly'&&weekCount(h,startOfWeek(d))>=(h.perWeek||3))return;(h.rem||[]).forEach(r=>{const [hh,mm]=r.split(':').map(Number);const at=new Date(d);at.setHours(hh,mm,0,0);push('h:'+h.id+'@'+s+'@'+r,'habit',h.id,h.icon+' '+h.name,h.goal>1?'Goal: '+h.goal+(h.unit?' '+h.unit:''):'Time for your habit',at,(h.remSet||h.created||0)-60000)})}));
-  const bal=balances();
-  S.accounts.filter(a=>a.type==='card'&&a.dueDay&&a.remind!==false&&-(bal[a.id]||0)>0).forEach(a=>{const due=nextDue(a);if(!due)return;[2,0].forEach(b=>{const at=addDays(due,-b);at.setHours(10,0,0,0);push('c:'+a.id+'@'+ymd(due)+'@'+b,'card',a.id,a.name+' bill '+(b?'due in 2 days':'due today'),inr(-(bal[a.id]||0))+' outstanding',at,(a.remSet||0)-60000)})});
+  S.accounts.filter(a=>a.type==='card'&&a.dueDay&&a.remind!==false).forEach(a=>{const due=nextDue(a);if(!due)return;[2,0].forEach(b=>{const at=addDays(due,-b);at.setHours(10,0,0,0);push('c:'+a.id+'@'+ymd(due)+'@'+b,'card',a.id,a.name+' bill '+(b?'due in 2 days':'due today'),'Pay your card bill',at,(a.remSet||0)-60000)})});
   Object.entries(A.snoozes).forEach(([k,v])=>push(k,v.kind,v.id,v.title,'Snoozed reminder',new Date(v.at)));
   return out.sort((a,b)=>a.at-b.at);
 }
@@ -1201,7 +1162,7 @@ function viewToday(){
   const ym=n.slice(0,7), spent=r2(monthTx(ym).filter(t=>t.type==='expense').reduce((a,t)=>a+ +t.amount,0));
   const o=owed(), collect=r2(Object.values(o).filter(v=>v>0).reduce((a,v)=>a+v,0));
   const next=upcomingAlarms(Date.now(),Date.now()+36*3600000).filter(a=>!A.fired[a.key]).slice(0,6);
-  const recent=S.txns.slice().sort((a,b)=>a.date===b.date?(b.created||0)-(a.created||0):a.date<b.date?1:-1).slice(0,5);
+  const recent=S.txns.filter(t=>t.type==='expense').sort((a,b)=>a.date===b.date?(b.created||0)-(a.created||0):a.date<b.date?1:-1).slice(0,5);
   return `<div class="hero"><div class="hero-top"><span class="logo">${LOGO}Mine</span><a class="icon-btn" href="#prefs" aria-label="Settings">${I.gear}</a></div><div class="date">${WD[d.getDay()]} <span>${d.getDate()} ${MON[d.getMonth()]}</span></div><div class="sub">${greet}. ${tasks.length?tasks.length+' task'+(tasks.length>1?'s':'')+' today'+(over?', '+over+' overdue':''):'No tasks due today'}${hs.length?' · '+hd+'/'+hs.length+' habits':''}</div></div>
   ${alarmBanner()}
   <div class="ledger"><div><div class="k">Tasks today</div><div class="v num">${tasks.length}</div></div><div><div class="k">Habits done</div><div class="v num">${hd}/${hs.length}</div></div><div><div class="k">Spent in ${MON[d.getMonth()]}</div><div class="v num">${inr(spent)}</div></div><div><div class="k">Carpool to collect</div><div class="v num pos">${inr(collect)}</div></div></div>
@@ -1212,7 +1173,7 @@ function viewToday(){
     <div class="panel"><div class="panel-head"><h3>Next alarms</h3></div>${next.map(a=>`<div class="row" style="padding:6px 0"><span class="num" style="font-weight:700;min-width:86px">${ymd(a.at)===n?'':(ymd(a.at)===ymd(addDays(d,1))?'Tmrw ':'')}${fmtTime(hhmm(a.at))}</span><span class="grow">${esc(a.title)}</span><span class="tiny muted">${a.kind==='habit'?'Habit':a.kind==='card'?'Card':'Task'}</span></div>`).join('')||'<div class="empty">No alarms in the next 36 hours.</div>'}</div>
   </div><div>
     <div class="panel"><div class="panel-head"><h3>Habits</h3><a class="btn sm ghost" href="#habits">Open</a></div>${hs.map(x=>habitRow(x,true)).join('')||`<div class="empty">No habits yet. <a href="#habits">Add one</a>.</div>`}</div>
-    <div class="panel flush"><div class="panel-head"><h3>Recent spending</h3><button class="btn sm" data-act="tx-new" data-v="expense">${I.plus} Expense</button></div>${recent.map(t=>{const a=acctById(t.acc);return `<div class="txrow" data-act="tx-edit" data-id="${t.id}"><div class="txicon">${t.type==='transfer'?'⇄':esc(CAT_ICON[t.cat]||'•')}</div><div class="grow"><div style="font-weight:600">${esc(t.note||t.cat||'Transfer')}</div><div class="tiny muted">${fmtDay(t.date)} · ${esc(a?a.name:'')}</div></div><div class="txamt num ${t.type==='expense'?'neg':t.type==='income'?'pos':''}">${inr(t.amount)}</div></div>`}).join('')||'<div class="empty">Nothing logged yet.</div>'}</div>
+    <div class="panel flush"><div class="panel-head"><h3>Recent spending</h3><button class="btn sm" data-act="tx-new" data-v="expense">${I.plus} Expense</button></div>${recent.map(t=>{const a=acctById(t.acc);return `<div class="txrow" data-act="tx-edit" data-id="${t.id}"><div class="txicon">${esc(CAT_ICON[t.cat]||'•')}</div><div class="grow"><div style="font-weight:600">${esc(t.note||t.cat)}</div><div class="tiny muted">${fmtDay(t.date)}${a?' · '+esc(a.name):''}</div></div><div class="txamt num neg">${inr(t.amount)}</div></div>`}).join('')||'<div class="empty">Nothing logged yet.</div>'}</div>
   </div></div>`;
 }
 
@@ -1337,16 +1298,15 @@ ui(async e=>{
     case 'acct-filter': UI.acctFilter=v; render(); break;
     case 'tx-new': openTx(null,v); break;
     case 'tx-edit': openTx(id); break;
-    case 'x-type': {const t=readTxForm();t.type=v;const cats=v==='income'?S.cats.inc:S.cats.exp;if(!cats.includes(t.cat))t.cat=cats[0];if(v==='transfer'&&t.to===t.acc)t.to=(S.accounts.find(a=>a.id!==t.acc)||{}).id;openModal(txEditor(t,modalCtx.isNew),modalCtx);break}
     case 'tx-save': saveTxFromModal(); break;
     case 'tx-del': confirmBox('Delete this transaction?','Delete',()=>{const t=S.txns.find(x=>x.id===id);S.txns=S.txns.filter(x=>x.id!==id);S.pays.forEach(p=>{if(p.txId===id)delete p.txId});Store.mark('money','carpool','txn_'+t.date.slice(0,7));render()}); break;
-    case 'tx-csv': {const rows=[['Date','Type','Amount','Account','To account','Category','Note']].concat(S.txns.slice().sort((a,b)=>a.date<b.date?-1:1).map(t=>[t.date,t.type,t.amount,(acctById(t.acc)||{}).name||'',(acctById(t.to)||{}).name||'',t.cat||'',t.note||'']));saveFile('daybook-transactions.csv',rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n'));break}
+    case 'tx-csv': {const rows=[['Date','Amount','Category','Paid with','Note']].concat(S.txns.filter(t=>t.type==='expense').sort((a,b)=>a.date<b.date?-1:1).map(t=>[t.date,t.amount,t.cat||'',(acctById(t.acc)||{}).name||'',t.note||'']));saveFile('mine-expenses.csv',rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n'));break}
     case 'budget': {location.hash='prefs';setTimeout(()=>{const b=$('#s-budget');b&&b.focus()},50);break}
     case 'acct-manage': acctManager(); break;
     case 'acct-new': openAcct(); break;
     case 'acct-edit': openAcct(id); break;
-    case 'acct-save': {const a=modalCtx.acct;a.name=$('#a-name').value.trim();if(!a.name)return toast('Name the account');a.type=$('#a-type').value;a.opening=r2($('#a-open').value);if(a.type==='card'){a.limit=r2($('#a-limit').value)||0;a.dueDay=Math.min(31,Math.max(0,parseInt($('#a-due').value)||0))||null;a.remind=$('#a-rem').checked;a.remSet=Date.now()}const isNew=a._new;delete a._new;if(isNew)S.accounts.push(a);else S.accounts[S.accounts.findIndex(x=>x.id===a.id)]=a;Store.mark('money');render();acctManager();break}
-    case 'acct-del': if(S.txns.some(t=>t.acc===id||t.to===id)) return toast('This account has transactions. Delete or move them first.'); confirmBox('Delete this account?','Delete',()=>{S.accounts=S.accounts.filter(a=>a.id!==id);if(UI.acctFilter===id)UI.acctFilter='all';Store.mark('money');render()}); break;
+    case 'acct-save': {const a=modalCtx.acct;a.name=$('#a-name').value.trim();if(!a.name)return toast('Give it a name');a.type=$('#a-type').value;if(a.type==='card'){a.dueDay=Math.min(31,Math.max(0,parseInt($('#a-due').value)||0))||null;a.remind=$('#a-rem').checked;a.remSet=Date.now()}const isNew=a._new;delete a._new;if(isNew)S.accounts.push(a);else S.accounts[S.accounts.findIndex(x=>x.id===a.id)]=a;Store.mark('money');render();acctManager();break}
+    case 'acct-del': if(S.txns.some(t=>t.acc===id||t.to===id)) return toast('Some expenses use this. Change or delete them first.'); confirmBox('Delete this payment method?','Delete',()=>{S.accounts=S.accounts.filter(a=>a.id!==id);if(UI.acctFilter===id)UI.acctFilter='all';Store.mark('money');render()}); break;
     case 'cat-add': {const k=el.dataset.k,i=$('#cat-new-'+k),c=i.value.trim();if(c&&!S.cats[k].includes(c)){S.cats[k].push(c);Store.mark('money');acctManager()}break}
     case 'cat-del': {const k=el.dataset.k;if(S.cats[k].length<=1)return toast('Keep at least one category');S.cats[k]=S.cats[k].filter(c=>c!==v);Store.mark('money');acctManager();break}
     /* carpool */
@@ -1373,7 +1333,7 @@ ui(async e=>{
     case 'al-snooze': {const a=Q[0];const at=Date.now()+(+v)*60000;A.snoozes['snz:'+a.kind+':'+a.id+':'+at]={at,kind:a.kind,id:a.id,title:a.title};Store.saveAlarms();toast('Snoozed until '+fmtTime(hhmm(new Date(at))));alarmNext();break}
     case 'al-dismiss': alarmNext(); break;
     case 'al-money': alarmNext(); location.hash='money'; break;
-    case 'al-fnext': alarmNext(); F.end=Date.now()+fDur(F.mode); F.running=true; syncNative(); UI.mode='focus'; location.hash='tasks'; render(); break;
+    case 'al-fnext': alarmNext(); F.end=Date.now()+fDur(F.mode); F.running=true; syncNative(); render(); break;
     case 'al-silence': Snd.stop(); break;
     case 'enable-alarms': Snd.unlock(); setTimeout(()=>{Snd.play(S.settings.sound,false);refreshBanner()},150); if('Notification' in window&&Notification.permission==='default'){try{await Notification.requestPermission()}catch(err){}} refreshBanner(); break;
     case 'enable-notif': try{const r=await Notification.requestPermission();toast(r==='granted'?'Notifications allowed':'Notifications not allowed. Alarms still ring while Mine is open.')}catch(err){toast('Notifications aren’t available here. Alarms still ring while Mine is open.')} render(); break;
@@ -1399,7 +1359,7 @@ document.addEventListener('change',e=>{
   if(t.dataset.set){let v=t.value;if(t.type==='number')v=+v||0;S.settings[t.dataset.set]=v;Store.mark('settings');if(t.dataset.set==='budget')toast('Budget saved');if(t.dataset.set.endsWith('Min')&&!F.running)F.remaining=null}
   if(t.id==='t-rep') $('#t-int-wrap').classList.toggle('hide',t.value!=='custom');
   if(t.dataset.set==='snooze'||t.dataset.set==='allDayTime')syncNative();
-  if(t.id==='a-type'){const c=t.value==='card';$('#a-card').classList.toggle('hide',!c);$('#a-open-l').textContent=c?'Amount outstanding right now (₹)':'Current balance (₹)'}
+  if(t.id==='a-type'){const c=t.value==='card';$('#a-card').classList.toggle('hide',!c)}
   if(t.id==='f-task') F.taskId=t.value;
   if(t.id==='tr-me') updateTripPreview();
   if(t.id==='restore-file'&&t.files[0]){const r=new FileReader();r.onload=async()=>{try{let d=JSON.parse(r.result);if(d&&d.mineEnc){const pw=(document.getElementById('bk-pass')||{}).value||'';if(!pw)return toast('Type the backup password above, then restore again');try{d=JSON.parse(await decBackup(d,pw))}catch(e2){return toast('Wrong backup password')}}if(!d||!Array.isArray(d.tasks))throw 0;confirmBox('Replace everything in Mine with this backup?','Restore',()=>{['settings','accounts','cats','txns','lists','tasks','focus','habits','hlog','people','trips','pays'].forEach(k=>{if(k in d)S[k]=d[k]});const ms=[...new Set(S.txns.map(x=>'txn_'+x.date.slice(0,7)))];Store.mark('settings','money','tasks','habits','carpool',...ms);applyTheme();render();toast('Backup restored')})}catch(err){toast('That file isn’t a Mine backup')}};r.readAsText(t.files[0])}
