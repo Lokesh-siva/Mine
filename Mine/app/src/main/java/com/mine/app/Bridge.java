@@ -109,7 +109,13 @@ public class Bridge {
     @JavascriptInterface
     public boolean setLock(boolean on) {
         activity.setLockEnabled(on);
+        ExpenseWidget.refresh(activity.getApplicationContext());
         return activity.lockEnabled();
+    }
+
+    @JavascriptInterface
+    public void setWidget(String label, String amount) {
+        ExpenseWidget.save(activity.getApplicationContext(), label, amount);
     }
 
     @JavascriptInterface

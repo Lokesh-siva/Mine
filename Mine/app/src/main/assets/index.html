@@ -479,6 +479,15 @@ function render(){
   const fn={today:viewToday,tasks:viewTasks,habits:viewHabits,money:viewMoney,carpool:viewCarpool,prefs:viewPrefs}[r];
   v.innerHTML=fn();
   if(r==='tasks'&&UI.mode==='focus') tickFocus();
+  syncWidget();
+}
+let widgetLast='';
+function syncWidget(){
+  if(!NATIVE) return;
+  const n=todayS(), amt=inr(monthTx(n.slice(0,7)).filter(t=>t.type==='expense').reduce((a,t)=>a+ +t.amount,0));
+  const label=MON[+n.slice(5,7)-1].toUpperCase()+' SPENT';
+  if(label+amt===widgetLast) return; widgetLast=label+amt;
+  try{window.MineNative.setWidget(label,amt)}catch(e){}
 }
 function applyTheme(){}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2600)}
@@ -1238,6 +1247,7 @@ window.mineBack=()=>{
   if(route()!=='today'){location.hash='today';return true}
   return false;
 };
+window.nativeAddExpense=()=>{if($('#modal').classList.contains('open'))closeModal();openTx(null,'expense')};
 window.mineResume=()=>{syncNative();if(!$('#modal').classList.contains('open'))render()};
 
 /* ================= events ================= */

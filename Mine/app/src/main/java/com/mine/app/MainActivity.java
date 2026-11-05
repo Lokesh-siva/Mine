@@ -30,6 +30,7 @@ public class MainActivity extends Activity {
     private WebView web;
     private ValueCallback<Uri[]> fileCallback;
     private String pendingAction = null;
+    private String pendingJs = null;
     private boolean loaded = false;
     private static final int FILE_REQ = 42;
     private static final int LOCK_REQ = 43;
@@ -208,6 +209,12 @@ public class MainActivity extends Activity {
     }
 
     private void handleIntent(Intent intent) {
+        if (intent != null && ExpenseWidget.ACTION_ADD_EXPENSE.equals(intent.getAction())) {
+            pendingJs = "window.nativeAddExpense&&window.nativeAddExpense()";
+            intent.setAction(Intent.ACTION_MAIN);
+            flushPending();
+            return;
+        }
         if (intent == null || !AlarmReceiver.ACTION_DONE.equals(intent.getAction())) return;
         String json = intent.getStringExtra("json");
         if (json == null) return;
@@ -222,6 +229,11 @@ public class MainActivity extends Activity {
     }
 
     private void flushPending() {
+        if (loaded && pendingJs != null) {
+            String js = pendingJs;
+            pendingJs = null;
+            web.evaluateJavascript(js, null);
+        }
         if (loaded && pendingAction != null) {
             String j = pendingAction;
             pendingAction = null;
