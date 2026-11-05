@@ -94,6 +94,7 @@ public class ExpenseWatch extends BroadcastReceiver {
             o.put("weekly", p.getBoolean("weekly", true));
             o.put("monthly", p.getBoolean("monthly", true));
             o.put("lastScan", p.getLong("lastScan", 0));
+            o.put("since", p.getLong("since", 0));
         } catch (Exception ignored) { }
         return o.toString();
     }
@@ -158,11 +159,30 @@ public class ExpenseWatch extends BroadcastReceiver {
     private static final String[] SKIP = {"otp", "one time password", "will be debited", "to be debited", "requested", "request", "due on", "due by",
             "statement", "min amt", "minimum amount", "offer", "cashback", "reward", "failed", "declined", "reversed", "refund", "unsuccessful"};
 
-    /** Reads bank SMS from the last 7 days and adds new debits to the candidate list. Returns the number of new ones. */
-    static synchronized int scan(Context c) {
+    /** Sets the date the review starts from (0 = last 7 days), drops older candidates and reads every SMS since then. */
+    static int setSince(Context c, long since) {
+        long now = System.currentTimeMillis();
+        if (since > now) since = now - DAY;
+        if (since > 0 && since < now - 366 * DAY) since = now - 366 * DAY;
+        prefs(c).edit().putLong("since", Math.max(0, since)).apply();
+        return scan(c, true);
+    }
+
+    static int scan(Context c) {
+        return scan(c, false);
+    }
+
+    /**
+     * Reads bank SMS and adds new debits to the candidate list. Returns the number of new ones.
+     * The daily check reads the last 7 days; a full scan reads everything since the chosen start date.
+     */
+    static synchronized int scan(Context c, boolean full) {
         if (!hasSmsPermission(c)) return 0;
         SharedPreferences p = prefs(c);
         long now = System.currentTimeMillis();
+        long since = p.getLong("since", 0);
+        long start = since <= 0 ? now - 7 * DAY : full ? since : Math.max(since, now - 7 * DAY);
+        long floor = since > 0 ? since : now - 30 * DAY;
         int added = 0;
         try {
             JSONArray cands = new JSONArray(p.getString("cands", "[]"));
@@ -173,7 +193,7 @@ public class ExpenseWatch extends BroadcastReceiver {
 
             try (Cursor cur = c.getContentResolver().query(Uri.parse("content://sms/inbox"),
                     new String[]{"_id", "address", "body", "date"}, "date > ?",
-                    new String[]{String.valueOf(now - 7 * DAY)}, "date DESC")) {
+                    new String[]{String.valueOf(start)}, "date DESC")) {
                 while (cur != null && cur.moveToNext()) {
                     String id = "sms" + cur.getLong(0);
                     if (known.contains(id)) continue;
@@ -189,11 +209,11 @@ public class ExpenseWatch extends BroadcastReceiver {
                     added++;
                 }
             }
-            // keep the last 30 days only
+            // keep candidates from the start date (or the last 30 days) only
             JSONArray keep = new JSONArray();
             for (int i = 0; i < cands.length(); i++) {
                 JSONObject o = cands.getJSONObject(i);
-                if (o.optLong("ts") > now - 30 * DAY) keep.put(o);
+                if (o.optLong("ts") >= floor) keep.put(o);
             }
             p.edit().putString("cands", keep.toString()).putLong("lastScan", now).apply();
         } catch (Exception ignored) { }

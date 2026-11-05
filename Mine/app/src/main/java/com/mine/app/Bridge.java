@@ -132,7 +132,12 @@ public class Bridge {
 
     @JavascriptInterface
     public int smsScan() {
-        return ExpenseWatch.scan(activity.getApplicationContext());
+        return ExpenseWatch.scan(activity.getApplicationContext(), true);
+    }
+
+    @JavascriptInterface
+    public int smsSince(double since) {
+        return ExpenseWatch.setSince(activity.getApplicationContext(), (long) since);
     }
 
     @JavascriptInterface
