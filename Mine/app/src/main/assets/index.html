@@ -375,7 +375,7 @@ const S={
   accounts:[], cats:{exp:DEFAULT_EXP.slice(),inc:DEFAULT_INC.slice()}, txns:[],
   lists:[{id:'inbox',name:'Inbox',color:'#2447D6'}], tasks:[], focus:[],
   habits:[], hlog:{},
-  people:[], trips:[], pays:[], mcat:{},
+  people:[], trips:[], pays:[], mcat:{}, rules:[],
   _t:{}
 };
 const A={fired:{},snoozes:{},soundOn:false}; // device-local alarm bookkeeping
@@ -390,7 +390,7 @@ const Store={db:null,uid:null,timers:{},chain:{},
   saveAlarms(){try{localStorage.setItem(LSA,JSON.stringify({fired:A.fired,snoozes:A.snoozes}))}catch(e){}},
   docData(n){
     if(n==='settings') return {settings:S.settings};
-    if(n==='money') return {accounts:S.accounts,cats:S.cats,months:[...new Set(S.txns.map(t=>t.date.slice(0,7)))]};
+    if(n==='money') return {accounts:S.accounts,cats:S.cats,rules:S.rules||[],mcat:S.mcat||{},months:[...new Set(S.txns.map(t=>t.date.slice(0,7)))]};
     if(n==='tasks') return {lists:S.lists,tasks:S.tasks,focus:S.focus.slice(-400)};
     if(n==='habits') return {habits:S.habits,hlog:S.hlog};
     if(n==='carpool') return {people:S.people,trips:S.trips,pays:S.pays};
@@ -411,10 +411,10 @@ const Store={db:null,uid:null,timers:{},chain:{},
     this.chain[n]=(this.chain[n]||Promise.resolve()).then(()=>ref.set(JSON.parse(JSON.stringify(data)))).then(()=>setSync('ok')).catch(e=>{console.warn('sync',n,e);setSync('err')});
   }
 };
-function defaultsSettings(){return {sound:'chime',allDayTime:'09:00',snooze:10,budget:0,theme:'system',upi:'',focusMin:25,shortMin:5,longMin:15}}
+function defaultsSettings(){return {sound:'chime',allDayTime:'09:00',snooze:10,budget:0,theme:'system',accent:'#3DDC84',missedOn:true,missedTime:'09:00',upi:'',focusMin:25,shortMin:5,longMin:15}}
 function applyDoc(n,d){
   if(n==='settings') S.settings=Object.assign(defaultsSettings(),d.settings||{});
-  else if(n==='money'){S.accounts=d.accounts||[];S.cats=d.cats||S.cats}
+  else if(n==='money'){S.accounts=d.accounts||[];S.cats=d.cats||S.cats;S.rules=d.rules||S.rules||[];S.mcat=d.mcat||S.mcat||{}}
   else if(n==='tasks'){S.lists=(d.lists&&d.lists.length)?d.lists:S.lists;S.tasks=d.tasks||[];S.focus=d.focus||[]}
   else if(n==='habits'){S.habits=d.habits||[];S.hlog=d.hlog||{}}
   else if(n==='carpool'){S.people=d.people||[];S.trips=d.trips||[];S.pays=d.pays||[]}
@@ -1019,12 +1019,21 @@ function smsBanner(){
 function smsReviewSheet(){
   const w=watchSettings(), u=smsUnmatched(), from=smsFrom(w), since=w.since?fmtDay(from):'the last 7 days';
   const pick=`<div class="row" style="align-items:flex-end;gap:8px;margin-bottom:12px"><div class="grow"><label class="f" for="sms-from" style="margin-top:0">Check bank SMS from</label><input class="in" type="date" id="sms-from" value="${from}" min="${ymd(addDays(new Date(),-365))}" max="${todayS()}"></div>${w.since?`<button class="btn sm ghost" data-act="sms-from-reset">Last 7 days</button>`:''}</div>`;
+  const auto=[],todo=[]; u.forEach(o=>{const c=autoCat(o);if(c)auto.push([o,c]);else todo.push(o)});
+  const tab=UI.smsTab==='auto'&&auto.length?'auto':UI.smsTab==='review'||!auto.length||todo.length?'review':'auto';
+  const head=(o,cat,acc,note)=>`<div class="row"><div class="txicon">${esc(CAT_ICON[cat]||'💬')}</div><div class="grow" style="min-width:0"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(note||o.merchant||o.sender||'Bank debit')}</div><div class="tiny muted">${fmtDay(o.date)} · ${esc(acc?acc.name:o.last4?'XX'+o.last4:o.sender||'')}</div></div><div class="txamt num neg">${inr(o.amt)}</div></div>`;
   let body;
   if(!w.sms) body=`<p class="muted">Mine can read your bank SMS every day at 9 pm and tell you about spending you haven’t added. Messages never leave your phone, and OTPs are skipped.</p><button class="btn primary" data-act="sms-on">Turn on SMS check</button>`;
-  else if(!u.length) body=pick+`<div class="empty">All caught up. Every bank debit from ${w.since?'since '+since:since} is in your expenses.</div>`;
-  else body=pick+`<p class="small muted" style="margin-top:0">${u.length} bank debit${u.length>1?'s':''} ${w.since?'since '+since:'from '+since} with no matching expense. Add them, or ignore ones that aren’t spending (like moving money to your own account).</p>`+u.map(o=>{const a=acctByLast4(o.last4);return `<div class="smsrow"><div class="row"><div class="txicon">${esc(CAT_ICON[S.mcat[merchKey(o.merchant)]]||'💬')}</div><div class="grow" style="min-width:0"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.merchant||o.sender||'Bank debit')}</div><div class="tiny muted">${fmtDay(o.date)} · ${esc(a?a.name:o.last4?'XX'+o.last4:o.sender||'')}</div></div><div class="txamt num neg">${inr(o.amt)}</div></div>
-    <div class="row" style="justify-content:flex-end;gap:8px;margin-top:8px"><button class="btn sm" data-act="sms-ignore" data-id="${esc(o.id)}">Ignore</button><button class="btn sm primary" data-act="sms-add" data-id="${esc(o.id)}">${I.plus} Add</button></div></div>`}).join('');
-  openModal(sheetHead('Expenses to review')+body+`<div class="sheet-foot">${w.sms?`<button class="btn left" data-act="sms-check">Check messages now</button>`:''}<button class="btn" data-act="close-modal">Close</button></div>`,{type:'sms'});
+  else if(!u.length) body=pick+`<div class="empty">All caught up. Every bank debit ${w.since?'since '+since:'from '+since} is in your expenses.</div>`;
+  else {
+    body=pick+`<div class="row" style="margin-bottom:12px"><div class="seg grow" role="group" aria-label="List"><button style="flex:1" data-act="sms-tab" data-v="review" aria-pressed="${tab==='review'}">To review (${todo.length})</button><button style="flex:1" data-act="sms-tab" data-v="auto" aria-pressed="${tab==='auto'}">Auto (${auto.length})</button></div><button class="btn sm" data-act="rules-open" data-v="sms">Rules</button></div>`;
+    if(tab==='review') body+=todo.length?`<p class="small muted" style="margin-top:0">Bank debits with no matching expense and no rule. Add them, ignore ones that aren’t spending, or make a rule so similar ones are categorized for you.</p>`+todo.map(o=>`<div class="smsrow">${head(o,null,acctByLast4(o.last4))}
+    <div class="row" style="justify-content:flex-end;gap:8px;margin-top:8px"><button class="btn sm ghost" style="margin-right:auto" data-act="rule-from" data-id="${esc(o.id)}">+ Rule</button><button class="btn sm" data-act="sms-ignore" data-id="${esc(o.id)}">Ignore</button><button class="btn sm primary" data-act="sms-add" data-id="${esc(o.id)}">${I.plus} Add</button></div></div>`).join(''):`<div class="empty">Nothing left to review by hand. Check the auto-categorized list.</div>`;
+    else body+=`<div class="row" style="margin-bottom:6px"><p class="small muted grow" style="margin:0">Categorized by your rules or earlier expenses. Edit anything that’s wrong, then approve.</p><button class="btn sm primary" data-act="sms-approve-all">Approve all</button></div>`+auto.map(([o,c])=>{const acc=c.acc?acctById(c.acc):acctByLast4(o.last4);return `<div class="smsrow">${head(o,c.cat,acc,c.note)}
+    <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap"><span class="chip" style="pointer-events:none">${esc(CAT_ICON[c.cat]||'')} ${esc(c.cat)}</span><span class="tiny muted">${c.rule?'Rule: '+esc(ruleLabel(c.rule)):'Learned from earlier expenses'}</span></div>
+    <div class="row" style="justify-content:flex-end;gap:8px;margin-top:8px"><button class="btn sm" data-act="sms-ignore" data-id="${esc(o.id)}">Ignore</button><button class="btn sm" data-act="sms-add" data-id="${esc(o.id)}">Edit</button><button class="btn sm primary" data-act="sms-approve" data-id="${esc(o.id)}">${I.check} Approve</button></div></div>`}).join('');
+  }
+  openModal(sheetHead('Expenses to review')+body+`<div class="sheet-foot">${w.sms?`<button class="btn left" data-act="sms-check">Check messages now</button>`:''}${w.sms&&!u.length?`<button class="btn" data-act="rules-open" data-v="sms">Rules</button>`:''}<button class="btn" data-act="close-modal">Close</button></div>`,{type:'sms'});
 }
 function smsSetFrom(ms){
   let n=0;try{n=window.MineNative.smsSince(ms)}catch(err){}
@@ -1032,8 +1041,77 @@ function smsSetFrom(ms){
 }
 function smsAdd(id){
   const o=smsCands().find(x=>x.id===id); if(!o) return;
-  const a=acctByLast4(o.last4), k=merchKey(o.merchant);
-  openTx(null,'expense',{amount:o.amt,date:o.date,note:o.merchant||'',acc:a?a.id:'',cat:S.mcat[k]||null,smsId:o.id},{mkey:k,fromSms:true});
+  const a=acctByLast4(o.last4), k=merchKey(o.merchant), c=autoCat(o)||{};
+  openTx(null,'expense',{amount:o.amt,date:o.date,note:c.note||o.merchant||'',acc:c.acc||(a?a.id:''),cat:c.cat||null,smsId:o.id},{mkey:k,fromSms:true});
+}
+// Adds an auto-categorized SMS debit as an expense without opening the editor
+function smsApprove(id,quiet){
+  const o=smsCands().find(x=>x.id===id), c=o&&autoCat(o); if(!c) return 0;
+  const a=acctByLast4(o.last4);
+  S.txns.push({id:uid(),type:'expense',amount:r2(o.amt),acc:c.acc||(a?a.id:''),cat:c.cat,note:c.note||o.merchant||'',date:o.date,created:Date.now(),smsId:o.id});
+  Store.mark('money','txn_'+o.date.slice(0,7));
+  if(!quiet){render();smsReviewSheet();toast('Added '+inr(o.amt)+' to '+c.cat)}
+  return o.amt;
+}
+
+/* ----- expense rules: categorize bank debits automatically ----- */
+const ruleTerms=s=>String(s||'').toLowerCase().split(',').map(x=>x.trim()).filter(Boolean);
+const ruleLabel=r=>r.name||[ruleTerms(r.text).join(' / '),ruleTerms(r.pay).join(' / ')].filter(Boolean).join(' · ')||r.cat;
+// Every condition that is filled in must match; a rule needs at least one condition
+function ruleHits(r,o){
+  if(r.off||!S.cats.exp.includes(r.cat)) return false;
+  const desc=String(o.merchant||o.note||'').toLowerCase(), t=ruleTerms(r.text), p=ruleTerms(r.pay), a=o.acc?acctById(o.acc):acctByLast4(o.last4);
+  const pay=[o.sender,o.last4,a&&a.name].filter(Boolean).join(' ').toLowerCase();
+  if(!t.length&&!p.length&&!r.acc&&!r.min&&!r.max) return false;
+  if(t.length&&!t.some(x=>r.how==='starts'?desc.startsWith(x):r.how==='exact'?desc===x:desc.includes(x))) return false;
+  if(p.length&&!p.some(x=>pay.includes(x))) return false;
+  if(r.acc&&(!a||a.id!==r.acc)) return false;
+  if(r.min&&o.amt<+r.min) return false;
+  if(r.max&&o.amt>+r.max) return false;
+  return true;
+}
+function autoCat(o){
+  const r=(S.rules||[]).find(x=>ruleHits(x,o));
+  if(r) return {cat:r.cat,note:r.note||'',acc:r.setAcc||'',rule:r};
+  const k=merchKey(o.merchant), c=k&&S.mcat[k];
+  return c&&S.cats.exp.includes(c)?{cat:c}:null;
+}
+function rulesSheet(back){
+  const rs=S.rules||[];
+  openModal(sheetHead('Expense rules')+`<p class="small muted" style="margin-top:0">Rules categorize bank debits for you. The first rule that matches wins, so put specific rules above general ones.</p>
+  ${rs.map((r,i)=>`<div class="txrow" style="padding:10px 4px"><div class="txicon">${esc(CAT_ICON[r.cat]||'🏷️')}</div><div class="grow" data-act="rule-edit" data-id="${r.id}" style="min-width:0;cursor:pointer"><b style="${r.off?'opacity:.5':''}">${esc(ruleLabel(r))}</b><div class="tiny muted">${esc(r.cat)}${r.note?' · rename to “'+esc(r.note)+'”':''}${r.off?' · off':''}</div></div>${i?`<button class="icon-btn" data-act="rule-up" data-id="${r.id}" aria-label="Move up">↑</button>`:''}</div>`).join('')||'<div class="empty">No rules yet. Example: description contains “swiggy, zomato” → Food & dining.</div>'}
+  <div class="sheet-foot">${back==='sms'?`<button class="btn left" data-act="sms-review">Back</button>`:''}<button class="btn primary" data-act="rule-new" data-v="${back||''}">${I.plus} Add rule</button><button class="btn" data-act="close-modal">Close</button></div>`,{type:'rules',back});
+}
+function ruleEditor(r,back){
+  const accOpts=sel=>`<option value="">Any</option>`+S.accounts.map(a=>`<option value="${a.id}" ${sel===a.id?'selected':''}>${esc(a.name)}</option>`).join('');
+  const n=smsUnmatched().filter(o=>ruleHits(Object.assign({},r,{off:false}),o)).length;
+  openModal(sheetHead(r._new?'New rule':'Edit rule')+`
+  <h3 style="margin:4px 0 0">When</h3>
+  <label class="f" for="r-text">Description</label><div class="frow" style="grid-template-columns:130px 1fr"><select class="in" id="r-how">${[['contains','contains'],['starts','starts with'],['exact','is exactly']].map(([k,l])=>`<option value="${k}" ${(r.how||'contains')===k?'selected':''}>${l}</option>`).join('')}</select><input class="in" id="r-text" value="${esc(r.text||'')}" placeholder="swiggy, zomato" autofocus></div>
+  <label class="f" for="r-pay">Payment contains (bank, card digits or payment method)</label><input class="in" id="r-pay" value="${esc(r.pay||'')}" placeholder="HDFC, 1234">
+  <div class="frow"><div><label class="f" for="r-acc">Paid with</label><select class="in" id="r-acc">${accOpts(r.acc)}</select></div><div><label class="f">Amount (₹)</label><div class="row" style="gap:6px"><input class="in num" id="r-min" type="number" min="0" value="${r.min||''}" placeholder="Min"><input class="in num" id="r-max" type="number" min="0" value="${r.max||''}" placeholder="Max"></div></div></div>
+  <p class="tiny muted" style="margin:6px 0 0">Separate words with commas to match any of them. Leave a field empty to ignore it.</p>
+  <h3 style="margin:18px 0 0">Then</h3>
+  <label class="f">Category</label><div class="catpick" id="r-cat">${S.cats.exp.map(c=>`<button type="button" data-act="tog1" data-v="${esc(c)}" aria-pressed="${r.cat===c}">${esc(CAT_ICON[c]||'')} ${esc(c)}</button>`).join('')}</div>
+  <div class="frow"><div><label class="f" for="r-note">Rename to (optional)</label><input class="in" id="r-note" value="${esc(r.note||'')}" placeholder="Swiggy"></div><div><label class="f" for="r-setacc">Set paid with (optional)</label><select class="in" id="r-setacc">${accOpts(r.setAcc).replace('>Any<','>Keep from SMS<')}</select></div></div>
+  <label class="f" for="r-name">Rule name (optional)</label><input class="in" id="r-name" value="${esc(r.name||'')}" placeholder="Food delivery">
+  ${!r._new?`<label class="check" style="margin-top:12px"><input type="checkbox" id="r-off" ${r.off?'':'checked'}> Rule is on</label>`:''}
+  ${n?`<div class="preview">Matches ${n} expense${n>1?'s':''} waiting for review</div>`:''}
+  <div class="sheet-foot">${!r._new?`<button class="btn danger left" data-act="rule-del" data-id="${r.id}">${I.trash} Delete</button>`:''}<button class="btn" data-act="rules-open" data-v="${back||''}">Back</button><button class="btn primary" data-act="rule-save">Save</button></div>`,{type:'rule',rule:r,back});
+}
+function saveRule(){
+  const c=modalCtx,r=c.rule,v=id=>$('#'+id).value.trim(),cat=$('#r-cat [aria-pressed="true"]');
+  Object.assign(r,{how:v('r-how'),text:v('r-text'),pay:v('r-pay'),acc:v('r-acc'),min:+v('r-min')||0,max:+v('r-max')||0,note:v('r-note'),setAcc:v('r-setacc'),name:v('r-name')});
+  if($('#r-off')) r.off=!$('#r-off').checked;
+  if(!cat) return toast('Pick a category');
+  r.cat=cat.dataset.v;
+  if(!r.text&&!r.pay&&!r.acc&&!r.min&&!r.max){$('#r-text').focus();return toast('Add at least one condition')}
+  S.rules=S.rules||[];
+  if(r._new){delete r._new;S.rules.push(r)} else S.rules[S.rules.findIndex(x=>x.id===r.id)]=r;
+  Store.mark('money');
+  const n=smsUnmatched().filter(o=>ruleHits(r,o)).length;
+  toast('Rule saved'+(n?' · '+n+' expense'+(n>1?'s':'')+' auto-categorized':''));
+  if(c.back==='sms'){UI.smsTab=n?'auto':UI.smsTab;smsReviewSheet()} else rulesSheet(c.back);
 }
 window.mineSmsPerm=ok=>{
   if(ok){toast('SMS check is on. Mine checks every day at 9 pm.');render();if($('#modal').classList.contains('open')&&modalCtx&&modalCtx.type==='sms')smsReviewSheet()}
@@ -1357,6 +1435,7 @@ function viewPrefs(){
   </div>`}
   <div class="panel"><h3>Focus timer</h3><div class="frow" style="grid-template-columns:1fr 1fr 1fr"><div><label class="f" for="s-f1">Focus</label><input class="in" type="number" min="1" id="s-f1" data-set="focusMin" value="${st.focusMin}"></div><div><label class="f" for="s-f2">Short break</label><input class="in" type="number" min="1" id="s-f2" data-set="shortMin" value="${st.shortMin}"></div><div><label class="f" for="s-f3">Long break</label><input class="in" type="number" min="1" id="s-f3" data-set="longMin" value="${st.longMin}"></div></div></div>
   </div><div>
+  <div class="panel"><div class="panel-head"><h3>Expense rules</h3><button class="btn sm" data-act="rules-open">${(S.rules||[]).length?'Manage':'Add rule'}</button></div><p class="small muted" style="margin:0">${(S.rules||[]).length?(S.rules.length+' rule'+(S.rules.length>1?'s':'')+' categorize bank debits automatically.'):'Categorize bank debits automatically, e.g. description contains “swiggy” → Food & dining.'}</p></div>
   <div class="panel"><h3>Money & carpool</h3>
     <label class="f" for="s-budget">Monthly spending budget (₹)</label><input class="in num" type="number" id="s-budget" data-set="budget" value="${st.budget||''}" placeholder="0 = no budget">
     <label class="f" for="s-upi">Your UPI ID (added to carpool reminders)</label><input class="in" id="s-upi" data-set="upi" value="${esc(st.upi||'')}" placeholder="name@okhdfcbank">
@@ -1471,6 +1550,16 @@ ui(async e=>{
     case 'tx-new': openTx(null,v); break;
     case 'sms-review': if($('#review').classList.contains('open'))closeReview(); smsReviewSheet(); break;
     case 'sms-add': smsAdd(id); break;
+    case 'sms-tab': UI.smsTab=v; smsReviewSheet(); break;
+    case 'sms-approve': smsApprove(id); break;
+    case 'sms-approve-all': {const list=smsUnmatched().filter(o=>autoCat(o));let tot=0;list.forEach(o=>{tot+=smsApprove(o.id,true)});render();UI.smsTab='review';smsReviewSheet();toast('Added '+list.length+' expense'+(list.length>1?'s':'')+' · '+inr(tot));break}
+    case 'rules-open': rulesSheet(v||''); break;
+    case 'rule-new': ruleEditor({_new:true,id:uid(),how:'contains',cat:null},v||(modalCtx&&modalCtx.back)||''); break;
+    case 'rule-edit': ruleEditor(JSON.parse(JSON.stringify(S.rules.find(x=>x.id===id))),modalCtx&&modalCtx.back||''); break;
+    case 'rule-from': {const o=smsCands().find(x=>x.id===id);if(o){ruleEditor({_new:true,id:uid(),how:'contains',text:String(o.merchant||'').toLowerCase().replace(/@.*$/,'').trim(),cat:null,note:''},'sms')}break}
+    case 'rule-save': saveRule(); break;
+    case 'rule-del': {const b=modalCtx&&modalCtx.back;confirmBox('Delete this rule?','Delete',()=>{S.rules=S.rules.filter(x=>x.id!==id);Store.mark('money');rulesSheet(b);toast('Rule deleted')});break}
+    case 'rule-up': {const i=S.rules.findIndex(x=>x.id===id);if(i>0){[S.rules[i-1],S.rules[i]]=[S.rules[i],S.rules[i-1]];Store.mark('money')}rulesSheet(modalCtx&&modalCtx.back);break}
     case 'sms-ignore': try{window.MineNative.smsIgnore(id)}catch(err){} render(); smsReviewSheet(); toast('Ignored'); break;
     case 'sms-from-reset': smsSetFrom(0); break;
     case 'sms-check': {if(!watchSettings().sms){smsReviewSheet();break}let n=0;try{n=window.MineNative.smsScan()}catch(err){}toast(n?n+' new bank message'+(n>1?'s':'')+' found':'No new bank messages');render();smsReviewSheet();break}
@@ -1552,7 +1641,7 @@ document.addEventListener('change',e=>{
   if(t.id==='a-type'){const c=t.value==='card';$('#a-card').classList.toggle('hide',!c)}
   if(t.id==='f-task') F.taskId=t.value;
   if(t.id==='tr-me') updateTripPreview();
-  if(t.id==='restore-file'&&t.files[0]){const r=new FileReader();r.onload=async()=>{try{let d=JSON.parse(r.result);if(d&&d.mineEnc){const pw=(document.getElementById('bk-pass')||{}).value||'';if(!pw)return toast('Type the backup password above, then restore again');try{d=JSON.parse(await decBackup(d,pw))}catch(e2){return toast('Wrong backup password')}}if(!d||!Array.isArray(d.tasks))throw 0;confirmBox('Replace everything in Mine with this backup?','Restore',()=>{['settings','accounts','cats','txns','lists','tasks','focus','habits','hlog','people','trips','pays','mcat'].forEach(k=>{if(k in d)S[k]=d[k]});const ms=[...new Set(S.txns.map(x=>'txn_'+x.date.slice(0,7)))];Store.mark('settings','money','tasks','habits','carpool',...ms);applyTheme();render();toast('Backup restored')})}catch(err){toast('That file isn’t a Mine backup')}};r.readAsText(t.files[0])}
+  if(t.id==='restore-file'&&t.files[0]){const r=new FileReader();r.onload=async()=>{try{let d=JSON.parse(r.result);if(d&&d.mineEnc){const pw=(document.getElementById('bk-pass')||{}).value||'';if(!pw)return toast('Type the backup password above, then restore again');try{d=JSON.parse(await decBackup(d,pw))}catch(e2){return toast('Wrong backup password')}}if(!d||!Array.isArray(d.tasks))throw 0;confirmBox('Replace everything in Mine with this backup?','Restore',()=>{['settings','accounts','cats','txns','lists','tasks','focus','habits','hlog','people','trips','pays','mcat','rules'].forEach(k=>{if(k in d)S[k]=d[k]});const ms=[...new Set(S.txns.map(x=>'txn_'+x.date.slice(0,7)))];Store.mark('settings','money','tasks','habits','carpool',...ms);applyTheme();render();toast('Backup restored')})}catch(err){toast('That file isn’t a Mine backup')}};r.readAsText(t.files[0])}
 });
 document.addEventListener('keydown',e=>{
   if(e.key!=='Enter') return;
