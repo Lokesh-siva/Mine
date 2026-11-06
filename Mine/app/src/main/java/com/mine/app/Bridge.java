@@ -151,6 +151,16 @@ public class Bridge {
     }
 
     @JavascriptInterface
+    public String smsIgnored() {
+        return ExpenseWatch.ignoredCandidates(activity.getApplicationContext());
+    }
+
+    @JavascriptInterface
+    public void smsUnignore(String id) {
+        ExpenseWatch.unignore(activity.getApplicationContext(), id);
+    }
+
+    @JavascriptInterface
     public void setExpenseIndex(String json) {
         ExpenseWatch.setExpenses(activity.getApplicationContext(), json);
     }

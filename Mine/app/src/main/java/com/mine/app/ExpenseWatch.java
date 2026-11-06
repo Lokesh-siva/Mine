@@ -148,6 +148,8 @@ public class ExpenseWatch extends BroadcastReceiver {
     private static final Pattern AMOUNT = Pattern.compile("(?:rs\\.?|inr|₹)\\s*([0-9][0-9,]*(?:\\.[0-9]{1,2})?)", Pattern.CASE_INSENSITIVE);
     private static final Pattern AMOUNT_BARE = Pattern.compile("(?:debited|spent|paid|sent|withdrawn)\\s*(?:by|of|for|with)?\\s*([0-9][0-9,]*(?:\\.[0-9]{1,2})?)\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern LAST4 = Pattern.compile("(?:a/?c|acct|account|card)\\s*(?:no\\.?)?\\s*(?:ending\\s*(?:with|in)?)?\\s*[:\\-]?\\s*[x*•.]*\\s*(\\d{4})\\b", Pattern.CASE_INSENSITIVE);
+    // e.g. "SMS BLOCKPCC 0750 to ..." when the card number isn't written next to the word card
+    private static final Pattern BLOCK4 = Pattern.compile("\\bblock\\w*\\s+(\\d{4})\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern[] MERCHANT = {
             Pattern.compile("\\bvpa\\s+([\\w.\\-]+@[\\w.\\-]+)", Pattern.CASE_INSENSITIVE),
             Pattern.compile("(?:credited to|paid to|sent to|trf to|transfer to|towards)\\s+([A-Za-z0-9 &'._@\\-]{2,40}?)(?=\\s+(?:on|at|ref\\w*|via|upi|avl|from|a/c)\\b|[.,;(]|$)", Pattern.CASE_INSENSITIVE),
@@ -155,7 +157,8 @@ public class ExpenseWatch extends BroadcastReceiver {
             Pattern.compile("\\bon\\s+([A-Za-z][A-Za-z0-9 &'._@\\-]{1,39}?)(?=\\s+(?:avl|ref|via)\\b|[.,;(]|$)", Pattern.CASE_INSENSITIVE),
             Pattern.compile("\\binfo[:\\s]+([A-Za-z0-9 &'._@/\\-]{2,40}?)(?=[.,;(]|\\s+avl|$)", Pattern.CASE_INSENSITIVE),
     };
-    private static final String[] DEBIT = {"debited", "spent", "paid", "sent", "purchase", "withdrawn", "debit", " dr ", "dr.", "txn of", "used for"};
+    private static final String[] DEBIT = {"debited", "spent", "paid", "sent", "purchase", "withdrawn", "debit", " dr ", "dr.", "txn of", "used for",
+            "used at", "transaction of", "made using", "charged"};
     private static final String[] SKIP = {"otp", "one time password", "will be debited", "to be debited", "requested", "request", "due on", "due by",
             "statement", "min amt", "minimum amount", "offer", "cashback", "reward", "failed", "declined", "reversed", "refund", "unsuccessful"};
 
@@ -189,7 +192,11 @@ public class ExpenseWatch extends BroadcastReceiver {
             Set<String> known = new HashSet<>();
             for (int i = 0; i < cands.length(); i++) known.add(cands.getJSONObject(i).getString("id"));
             JSONArray ign = new JSONArray(p.getString("ignored", "[]"));
-            for (int i = 0; i < ign.length(); i++) known.add(ign.getString(i));
+            Set<String> ignIds = new HashSet<>();
+            for (int i = 0; i < ign.length(); i++) ignIds.add(ign.getString(i));
+            // ignored SMS are kept too, so the review can list them and bring them back
+            JSONArray ignCands = new JSONArray(p.getString("ignoredCands", "[]"));
+            for (int i = 0; i < ignCands.length(); i++) known.add(ignCands.getJSONObject(i).getString("id"));
 
             try (Cursor cur = c.getContentResolver().query(Uri.parse("content://sms/inbox"),
                     new String[]{"_id", "address", "body", "date"}, "date > ?",
@@ -204,20 +211,30 @@ public class ExpenseWatch extends BroadcastReceiver {
                     o.put("id", id);
                     o.put("ts", ts);
                     o.put("date", ymd(ts));
-                    cands.put(o);
                     known.add(id);
+                    if (ignIds.contains(id)) {
+                        ignCands.put(o);
+                        continue;
+                    }
+                    cands.put(o);
                     added++;
                 }
             }
             // keep candidates from the start date (or the last 30 days) only
-            JSONArray keep = new JSONArray();
-            for (int i = 0; i < cands.length(); i++) {
-                JSONObject o = cands.getJSONObject(i);
-                if (o.optLong("ts") >= floor) keep.put(o);
-            }
-            p.edit().putString("cands", keep.toString()).putLong("lastScan", now).apply();
+            p.edit().putString("cands", keepSince(cands, floor).toString())
+                    .putString("ignoredCands", keepSince(ignCands, floor).toString())
+                    .putLong("lastScan", now).apply();
         } catch (Exception ignored) { }
         return added;
+    }
+
+    private static JSONArray keepSince(JSONArray list, long floor) throws Exception {
+        JSONArray keep = new JSONArray();
+        for (int i = 0; i < list.length(); i++) {
+            JSONObject o = list.getJSONObject(i);
+            if (o.optLong("ts") >= floor) keep.put(o);
+        }
+        return keep;
     }
 
     static JSONObject parse(String addr, String body) {
@@ -243,6 +260,7 @@ public class ExpenseWatch extends BroadcastReceiver {
             o.put("amt", Math.round(amt * 100) / 100.0);
             Matcher l = LAST4.matcher(body);
             if (l.find()) o.put("last4", l.group(1));
+            else if ((l = BLOCK4.matcher(body)).find()) o.put("last4", l.group(1));
             String merchant = "";
             for (Pattern mp : MERCHANT) {
                 Matcher mm = mp.matcher(body);
@@ -271,20 +289,45 @@ public class ExpenseWatch extends BroadcastReceiver {
         return prefs(c).getString("cands", "[]");
     }
 
+    static String ignoredCandidates(Context c) {
+        return prefs(c).getString("ignoredCands", "[]");
+    }
+
     static synchronized void ignore(Context c, String id) {
         SharedPreferences p = prefs(c);
         try {
             JSONArray cands = new JSONArray(p.getString("cands", "[]")), keep = new JSONArray();
+            JSONArray ignCands = new JSONArray(p.getString("ignoredCands", "[]"));
             for (int i = 0; i < cands.length(); i++) {
                 JSONObject o = cands.getJSONObject(i);
                 if (!id.equals(o.optString("id"))) keep.put(o);
+                else ignCands.put(o);
             }
             JSONArray ign = new JSONArray(p.getString("ignored", "[]"));
             ign.put(id);
-            // the 7-day SMS window never reaches back further than this, so old ids can go
+            // the SMS window never reaches back further than this, so old ids can go
             JSONArray trimmed = new JSONArray();
             for (int i = Math.max(0, ign.length() - 500); i < ign.length(); i++) trimmed.put(ign.get(i));
-            p.edit().putString("cands", keep.toString()).putString("ignored", trimmed.toString()).apply();
+            p.edit().putString("cands", keep.toString()).putString("ignored", trimmed.toString())
+                    .putString("ignoredCands", ignCands.toString()).apply();
+        } catch (Exception ignored) { }
+    }
+
+    /** Moves an ignored SMS back to the review list. */
+    static synchronized void unignore(Context c, String id) {
+        SharedPreferences p = prefs(c);
+        try {
+            JSONArray cands = new JSONArray(p.getString("cands", "[]"));
+            JSONArray ignCands = new JSONArray(p.getString("ignoredCands", "[]")), keepIgn = new JSONArray();
+            for (int i = 0; i < ignCands.length(); i++) {
+                JSONObject o = ignCands.getJSONObject(i);
+                if (id.equals(o.optString("id"))) cands.put(o);
+                else keepIgn.put(o);
+            }
+            JSONArray ign = new JSONArray(p.getString("ignored", "[]")), keepIds = new JSONArray();
+            for (int i = 0; i < ign.length(); i++) if (!id.equals(ign.optString(i))) keepIds.put(ign.get(i));
+            p.edit().putString("cands", cands.toString()).putString("ignoredCands", keepIgn.toString())
+                    .putString("ignored", keepIds.toString()).apply();
         } catch (Exception ignored) { }
     }
 

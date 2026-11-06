@@ -1008,6 +1008,8 @@ function viewMoney(){
 /* ----- bank SMS: expenses not added yet ----- */
 function watchSettings(){try{return JSON.parse(window.MineNative.watchSettings())}catch(e){return {sms:false,smsPerm:false,weekly:true,monthly:true,lastScan:0}}}
 function smsCands(){if(!NATIVE)return [];try{return JSON.parse(window.MineNative.smsCandidates())||[]}catch(e){return []}}
+// Ignored bank SMS in the review period, minus any added as an expense afterwards
+function smsIgnored(){if(!NATIVE)return [];const from=smsFrom(),linked=new Set(S.txns.map(t=>t.smsId).filter(Boolean));try{return (JSON.parse(window.MineNative.smsIgnored())||[]).filter(o=>o.date>=from&&!linked.has(o.id)).sort((a,b)=>b.ts-a.ts)}catch(e){return []}}
 // First day the SMS review covers: the date picked in the review sheet, or the last 7 days
 function smsFrom(w){w=w||watchSettings();return w.since?ymd(new Date(w.since)):ymd(addDays(new Date(),-6))}
 const dayNum=s=>Math.round(parseYmd(s).getTime()/864e5);
@@ -1032,28 +1034,30 @@ function smsBanner(){
 function smsReviewSheet(){
   const w=watchSettings(), u=smsUnmatched(), from=smsFrom(w), since=w.since?fmtDay(from):'the last 7 days';
   const pick=`<div class="row" style="align-items:flex-end;gap:8px;margin-bottom:12px"><div class="grow"><label class="f" for="sms-from" style="margin-top:0">Check bank SMS from</label><input class="in" type="date" id="sms-from" value="${from}" min="${ymd(addDays(new Date(),-365))}" max="${todayS()}"></div>${w.since?`<button class="btn sm ghost" data-act="sms-from-reset">Last 7 days</button>`:''}</div>`;
-  const auto=[],todo=[]; u.forEach(o=>{const c=autoCat(o);if(c)auto.push([o,c]);else todo.push(o)});
-  const tab=UI.smsTab==='auto'&&auto.length?'auto':UI.smsTab==='review'||!auto.length||todo.length?'review':'auto';
+  const auto=[],todo=[],ign=w.sms?smsIgnored():[]; u.forEach(o=>{const c=autoCat(o);if(c)auto.push([o,c]);else todo.push(o)});
+  const tab=UI.smsTab==='ignored'&&ign.length?'ignored':UI.smsTab==='auto'&&auto.length?'auto':UI.smsTab==='review'||!auto.length||todo.length?'review':'auto';
   const head=(o,cat,acc,note)=>`<div class="row"><div class="txicon">${esc(CAT_ICON[cat]||'💬')}</div><div class="grow" style="min-width:0"><div style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(note||o.merchant||o.sender||'Bank debit')}</div><div class="tiny muted">${fmtDay(o.date)} · ${esc(acc?acc.name:o.last4?'XX'+o.last4:o.sender||'')}</div></div><div class="txamt num neg">${inr(o.amt)}</div></div>`;
   let body;
   if(!w.sms) body=`<p class="muted">Mine can read your bank SMS every day at 9 pm and tell you about spending you haven’t added. Messages never leave your phone, and OTPs are skipped.</p><button class="btn primary" data-act="sms-on">Turn on SMS check</button>`;
-  else if(!u.length) body=pick+`<div class="empty">All caught up. Every bank debit ${w.since?'since '+since:'from '+since} is in your expenses.</div>`;
+  else if(!u.length&&!ign.length) body=pick+`<div class="empty">All caught up. Every bank debit ${w.since?'since '+since:'from '+since} is in your expenses.</div>`;
   else {
-    body=pick+`<div class="row" style="margin-bottom:12px"><div class="seg grow" role="group" aria-label="List"><button style="flex:1" data-act="sms-tab" data-v="review" aria-pressed="${tab==='review'}">To review (${todo.length})</button><button style="flex:1" data-act="sms-tab" data-v="auto" aria-pressed="${tab==='auto'}">Auto (${auto.length})</button></div><button class="btn sm" data-act="rules-open" data-v="sms">Rules</button></div>`;
-    if(tab==='review') body+=todo.length?`<p class="small muted" style="margin-top:0">Bank debits with no matching expense and no rule. Add them, ignore ones that aren’t spending, or make a rule so similar ones are categorized for you.</p>`+todo.map(o=>`<div class="smsrow">${head(o,null,acctByLast4(o.last4))}
+    body=pick+`<div class="row" style="margin-bottom:12px"><div class="seg grow" role="group" aria-label="List"><button style="flex:1" data-act="sms-tab" data-v="review" aria-pressed="${tab==='review'}">To review (${todo.length})</button><button style="flex:1" data-act="sms-tab" data-v="auto" aria-pressed="${tab==='auto'}">Auto (${auto.length})</button><button style="flex:1" data-act="sms-tab" data-v="ignored" aria-pressed="${tab==='ignored'}">Ignored (${ign.length})</button></div></div>`;
+    if(tab==='ignored') body+=`<p class="small muted" style="margin-top:0">Bank messages you ignored. Restore one to review it again.</p>`+ign.map(o=>`<div class="smsrow">${head(o,null,acctByLast4(o.last4))}
+    <div class="row" style="justify-content:flex-end;gap:8px;margin-top:8px"><button class="btn sm" data-act="sms-unignore" data-id="${esc(o.id)}">Restore</button><button class="btn sm primary" data-act="sms-add" data-id="${esc(o.id)}">${I.plus} Add</button></div></div>`).join('');
+    else if(tab==='review') body+=todo.length?`<p class="small muted" style="margin-top:0">Bank debits with no matching expense and no rule. Add them, ignore ones that aren’t spending, or make a rule so similar ones are categorized for you.</p>`+todo.map(o=>`<div class="smsrow">${head(o,null,acctByLast4(o.last4))}
     <div class="row" style="justify-content:flex-end;gap:8px;margin-top:8px"><button class="btn sm ghost" style="margin-right:auto" data-act="rule-from" data-id="${esc(o.id)}">+ Rule</button><button class="btn sm" data-act="sms-ignore" data-id="${esc(o.id)}">Ignore</button><button class="btn sm primary" data-act="sms-add" data-id="${esc(o.id)}">${I.plus} Add</button></div></div>`).join(''):`<div class="empty">Nothing left to review by hand. Check the auto-categorized list.</div>`;
     else body+=`<div class="row" style="margin-bottom:6px"><p class="small muted grow" style="margin:0">Categorized by your rules or earlier expenses. Edit anything that’s wrong, then approve.</p><button class="btn sm primary" data-act="sms-approve-all">Approve all</button></div>`+auto.map(([o,c])=>{const acc=c.acc?acctById(c.acc):acctByLast4(o.last4);return `<div class="smsrow">${head(o,c.cat,acc,c.note)}
     <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap"><span class="chip" style="pointer-events:none">${esc(CAT_ICON[c.cat]||'')} ${esc(c.cat)}</span><span class="tiny muted">${c.rule?'Rule: '+esc(ruleLabel(c.rule)):'Learned from earlier expenses'}</span></div>
     <div class="row" style="justify-content:flex-end;gap:8px;margin-top:8px"><button class="btn sm" data-act="sms-ignore" data-id="${esc(o.id)}">Ignore</button><button class="btn sm" data-act="sms-add" data-id="${esc(o.id)}">Edit</button><button class="btn sm primary" data-act="sms-approve" data-id="${esc(o.id)}">${I.check} Approve</button></div></div>`}).join('');
   }
-  openModal(sheetHead('Expenses to review')+body+`<div class="sheet-foot">${w.sms?`<button class="btn left" data-act="sms-check">Check messages now</button>`:''}${w.sms&&!u.length?`<button class="btn" data-act="rules-open" data-v="sms">Rules</button>`:''}<button class="btn" data-act="close-modal">Close</button></div>`,{type:'sms'});
+  openModal(sheetHead('Expenses to review')+body+`<div class="sheet-foot">${w.sms?`<button class="btn left" data-act="sms-check">Check messages now</button>`:''}${w.sms?`<button class="btn" data-act="rules-open" data-v="sms">Rules</button>`:''}<button class="btn" data-act="close-modal">Close</button></div>`,{type:'sms'});
 }
 function smsSetFrom(ms){
   let n=0;try{n=window.MineNative.smsSince(ms)}catch(err){}
   toast(n?n+' bank message'+(n>1?'s':'')+' found':'No new bank messages');render();smsReviewSheet();
 }
 function smsAdd(id){
-  const o=smsCands().find(x=>x.id===id); if(!o) return;
+  const o=smsCands().concat(smsIgnored()).find(x=>x.id===id); if(!o) return;
   const a=acctByLast4(o.last4), k=merchKey(o.merchant), c=autoCat(o)||{};
   openTx(null,'expense',{amount:o.amt,date:o.date,note:c.note||o.merchant||'',acc:c.acc||(a?a.id:''),cat:c.cat||null,smsId:o.id},{mkey:k,fromSms:true});
 }
@@ -1574,7 +1578,8 @@ ui(async e=>{
     case 'rule-save': saveRule(); break;
     case 'rule-del': {const b=modalCtx&&modalCtx.back;confirmBox('Delete this rule?','Delete',()=>{S.rules=S.rules.filter(x=>x.id!==id);Store.mark('money');rulesSheet(b);toast('Rule deleted')});break}
     case 'rule-up': {const i=S.rules.findIndex(x=>x.id===id);if(i>0){[S.rules[i-1],S.rules[i]]=[S.rules[i],S.rules[i-1]];Store.mark('money')}rulesSheet(modalCtx&&modalCtx.back);break}
-    case 'sms-ignore': try{window.MineNative.smsIgnore(id)}catch(err){} render(); smsReviewSheet(); toast('Ignored'); break;
+    case 'sms-ignore': try{window.MineNative.smsIgnore(id)}catch(err){} render(); smsReviewSheet(); toast('Ignored · find it in the Ignored tab'); break;
+    case 'sms-unignore': try{window.MineNative.smsUnignore(id)}catch(err){} render(); smsReviewSheet(); toast('Moved back to review'); break;
     case 'sms-from-reset': smsSetFrom(0); break;
     case 'sms-check': {if(!watchSettings().sms){smsReviewSheet();break}let n=0;try{n=window.MineNative.smsScan()}catch(err){}toast(n?n+' new bank message'+(n>1?'s':'')+' found':'No new bank messages');render();smsReviewSheet();break}
     case 'sms-on': try{window.MineNative.requestSms()}catch(err){} break;
