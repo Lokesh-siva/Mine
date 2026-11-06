@@ -2,7 +2,7 @@
     <style name="Theme.Mine" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/bg</item>
         <item name="android:statusBarColor">@color/bg</item>
-        <item name="android:navigationBarColor">@color/bg</item>
+        <item name="android:navigationBarColor">@color/surface</item>
         <item name="android:colorAccent">@color/green</item>
         <item name="android:colorPrimary">@color/bg</item>
     </style>
