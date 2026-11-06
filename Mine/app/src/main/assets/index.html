@@ -191,6 +191,7 @@ body{overflow-x:clip}
 .hicon{width:42px;height:42px;border-radius:12px;background:var(--surface2);display:grid;place-items:center;font-size:1.3rem;flex:none;border:0;padding:0}
 .hname{font-weight:700;border:0;background:none;padding:0;text-align:left;cursor:pointer}
 .hcheck{flex:none;width:44px;height:44px;border-radius:50%;border:2px solid var(--line);background:transparent;display:grid;place-items:center;font-weight:700;font-size:.8rem;position:relative}
+.modrow .txicon svg{width:20px;height:20px}
 .swatches{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
 .swatch{width:38px;height:38px;border-radius:50%;border:2px solid var(--line);background:var(--c);display:grid;place-items:center;color:#04140A;padding:0;cursor:pointer}
 .swatch[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 2px var(--bg) inset}
@@ -486,12 +487,18 @@ const bigBell=`<svg class="bell" viewBox="0 0 24 24" fill="none" stroke="current
 
 /* ================= router & shell ================= */
 const ROUTES=[['today','Today',I.today],['tasks','Tasks',I.tasks],['habits','Habits',I.habits],['money','Money',I.money],['carpool','Carpool',I.car]];
-function route(){const h=(location.hash||'').replace('#','');return ['today','tasks','habits','money','carpool','prefs'].includes(h)?h:'today'}
+// Modules in the user's order; switched-off ones are hidden but keep their data
+function modOrder(){const o=(S.settings.modOrder||[]).filter(k=>ROUTES.some(r=>r[0]===k));ROUTES.forEach(r=>{if(!o.includes(r[0]))o.push(r[0])});return o}
+const modOn=k=>!(S.settings.modOff||[]).includes(k);
+const modules=()=>modOrder().filter(modOn).map(k=>ROUTES.find(r=>r[0]===k));
+function route(){const h=(location.hash||'').replace('#',''),m=modules();if(h==='prefs'||(m.some(r=>r[0]===h)))return h;return m.length?m[0][0]:'prefs'}
 function shell(){
   const r=route();
   const link=([k,l,i])=>`<a href="#${k}" ${r===k?'aria-current="page"':''}>${i}<span>${l}</span></a>`;
-  $('#rail').innerHTML=`<div class="brand">${LOGO}Mine</div>${ROUTES.map(link).join('')}<div class="spacer"></div>${link(['prefs','Settings',I.gear])}<div style="padding:8px 12px"><span class="sync"><i></i>${syncLabel()}</span></div>`;
-  $('#tabbar').innerHTML=ROUTES.map(link).join('');
+  const mods=modules();
+  $('#rail').innerHTML=`<div class="brand">${LOGO}Mine</div>${mods.map(link).join('')}<div class="spacer"></div>${link(['prefs','Settings',I.gear])}<div style="padding:8px 12px"><span class="sync"><i></i>${syncLabel()}</span></div>`;
+  // Settings lives behind the gear on Today, so it gets a tab when Today is off
+  $('#tabbar').innerHTML=(modOn('today')?mods:mods.concat([['prefs','Settings',I.gear]])).map(link).join('');
   setSync(syncState);
 }
 function render(){
@@ -527,6 +534,12 @@ function applyTheme(){
   const ink=inkOf(hex), r=document.documentElement.style;
   [['--accent',hex],['--green',hex],['--amber',hex],['--amber-bg',hex],['--accent-ink',ink],['--amber-ink',ink],['--soft',mix(.16)],['--green-soft',mix(.13)],['--glow','rgba('+c.join(',')+',.28)']].forEach(([k,v])=>r.setProperty(k,v));
   if(NATIVE)try{window.MineNative.setAccent(hex)}catch(e){}
+}
+function modulesPanel(){
+  const o=modOrder(), on=o.filter(modOn).length;
+  return `<div class="panel"><h3>Modules</h3><p class="small muted" style="margin-top:0">Choose which modules show in the tab bar and their order. Switched-off modules keep their data and stop their reminders.</p>
+    ${o.map((k,i)=>{const r=ROUTES.find(x=>x[0]===k),en=modOn(k);return `<div class="row modrow" style="padding:6px 0;gap:6px"><span class="txicon" style="${en?'':'opacity:.4'}">${r[2]}</span><span class="grow" style="font-weight:600;${en?'':'opacity:.5'}">${r[1]}</span><button class="icon-btn" data-act="mod-move" data-v="${k}" data-d="-1" aria-label="Move ${r[1]} up" ${i?'':'disabled style="visibility:hidden"'}>↑</button><button class="icon-btn" data-act="mod-move" data-v="${k}" data-d="1" aria-label="Move ${r[1]} down" ${i<o.length-1?'':'disabled style="visibility:hidden"'}>↓</button><button class="btn sm${en?' primary':''}" style="min-width:52px" data-act="mod-toggle" data-v="${k}" ${en&&on===1?'disabled':''}>${en?'On':'Off'}</button></div>`}).join('')}
+    ${modOn('today')?'':'<p class="tiny muted" style="margin:8px 0 0">With Today off, Settings gets its own tab.</p>'}</div>`;
 }
 function themePanel(){
   const cur=(S.settings.accent||'#3DDC84').toUpperCase(), known=ACCENTS.some(([h])=>h===cur);
@@ -1338,12 +1351,12 @@ const Q=[]; let baseTitle='Mine', flashT=null;
 function upcomingAlarms(fromMs,toMs){
   const out=[];
   const push=(key,kind,id,title,sub,at,since)=>{const ms=at.getTime();if(ms>=fromMs&&ms<toMs&&ms>=(since||0))out.push({key,kind,id,title,sub,at})};
-  S.tasks.forEach(t=>{if(t.done||!t.due)return;const base=taskBase(t);(t.rem||[]).forEach(m=>{const at=new Date(base.getTime()-m*60000);push(t.id+'@'+t.due+'T'+(t.time||'')+'@'+m,'task',t.id,t.title,m?(REM_OPTS.find(r=>r[0]===m)||[,''])[1].replace(' before',' before it’s due'):(t.time?'Due now':'Due today'),at,(t.remSet||t.created||0)-60000)})});
+  if(modOn('tasks'))S.tasks.forEach(t=>{if(t.done||!t.due)return;const base=taskBase(t);(t.rem||[]).forEach(m=>{const at=new Date(base.getTime()-m*60000);push(t.id+'@'+t.due+'T'+(t.time||'')+'@'+m,'task',t.id,t.title,m?(REM_OPTS.find(r=>r[0]===m)||[,''])[1].replace(' before',' before it’s due'):(t.time?'Due now':'Due today'),at,(t.remSet||t.created||0)-60000)})});
   const days=[];for(let d=new Date(fromMs-86400000);d.getTime()<toMs+86400000;d=addDays(d,1))days.push(new Date(d.getFullYear(),d.getMonth(),d.getDate()));
   // Missed tasks ring every day at the chosen time, starting the day after they were due, until done
-  if(S.settings.missedOn!==false){const [mh,mm]=(S.settings.missedTime||'09:00').split(':').map(Number);S.tasks.forEach(t=>{if(t.done||!t.due)return;const first=addDays(parseYmd(t.due),1);days.forEach(d=>{if(d<first)return;const at=new Date(d);at.setHours(mh,mm,0,0);push('m:'+t.id+'@'+ymd(d),'task',t.id,t.title,'Missed · was due '+fmtDay(t.due),at,(t.created||0)-60000)})})}
-  S.habits.filter(h=>!h.archived).forEach(h=>days.forEach(d=>{const s=ymd(d);if(!scheduled(h,d)&&h.freq!=='weekly')return;if(doneOn(h,s))return;if(h.freq==='weekly'&&weekCount(h,startOfWeek(d))>=(h.perWeek||3))return;(h.rem||[]).forEach(r=>{const [hh,mm]=r.split(':').map(Number);const at=new Date(d);at.setHours(hh,mm,0,0);push('h:'+h.id+'@'+s+'@'+r,'habit',h.id,h.icon+' '+h.name,h.goal>1?'Goal: '+h.goal+(h.unit?' '+h.unit:''):'Time for your habit',at,(h.remSet||h.created||0)-60000)})}));
-  S.accounts.filter(a=>a.type==='card'&&a.dueDay&&a.remind!==false).forEach(a=>{const due=nextDue(a);if(!due)return;[2,0].forEach(b=>{const at=addDays(due,-b);at.setHours(10,0,0,0);push('c:'+a.id+'@'+ymd(due)+'@'+b,'card',a.id,a.name+' bill '+(b?'due in 2 days':'due today'),'Pay your card bill',at,(a.remSet||0)-60000)})});
+  if(modOn('tasks')&&S.settings.missedOn!==false){const [mh,mm]=(S.settings.missedTime||'09:00').split(':').map(Number);S.tasks.forEach(t=>{if(t.done||!t.due)return;const first=addDays(parseYmd(t.due),1);days.forEach(d=>{if(d<first)return;const at=new Date(d);at.setHours(mh,mm,0,0);push('m:'+t.id+'@'+ymd(d),'task',t.id,t.title,'Missed · was due '+fmtDay(t.due),at,(t.created||0)-60000)})})}
+  if(modOn('habits'))S.habits.filter(h=>!h.archived).forEach(h=>days.forEach(d=>{const s=ymd(d);if(!scheduled(h,d)&&h.freq!=='weekly')return;if(doneOn(h,s))return;if(h.freq==='weekly'&&weekCount(h,startOfWeek(d))>=(h.perWeek||3))return;(h.rem||[]).forEach(r=>{const [hh,mm]=r.split(':').map(Number);const at=new Date(d);at.setHours(hh,mm,0,0);push('h:'+h.id+'@'+s+'@'+r,'habit',h.id,h.icon+' '+h.name,h.goal>1?'Goal: '+h.goal+(h.unit?' '+h.unit:''):'Time for your habit',at,(h.remSet||h.created||0)-60000)})}));
+  if(modOn('money'))S.accounts.filter(a=>a.type==='card'&&a.dueDay&&a.remind!==false).forEach(a=>{const due=nextDue(a);if(!due)return;[2,0].forEach(b=>{const at=addDays(due,-b);at.setHours(10,0,0,0);push('c:'+a.id+'@'+ymd(due)+'@'+b,'card',a.id,a.name+' bill '+(b?'due in 2 days':'due today'),'Pay your card bill',at,(a.remSet||0)-60000)})});
   Object.entries(A.snoozes).forEach(([k,v])=>push(k,v.kind,v.id,v.title,'Snoozed reminder',new Date(v.at)));
   return out.sort((a,b)=>a.at-b.at);
 }
@@ -1401,18 +1414,18 @@ function viewToday(){
   const o=owed(), collect=r2(Object.values(o).filter(v=>v>0).reduce((a,v)=>a+v,0));
   const next=upcomingAlarms(Date.now(),Date.now()+36*3600000).filter(a=>!A.fired[a.key]).slice(0,6);
   const recent=S.txns.filter(t=>t.type==='expense').sort((a,b)=>a.date===b.date?(b.created||0)-(a.created||0):a.date<b.date?1:-1).slice(0,5);
-  return `<div class="hero"><div class="hero-top"><span class="logo">${LOGO}Mine</span><a class="icon-btn" href="#prefs" aria-label="Settings">${I.gear}</a></div><div class="date">${WD[d.getDay()]} <span>${d.getDate()} ${MON[d.getMonth()]}</span></div><div class="sub">${greet}. ${tasks.length?tasks.length+' task'+(tasks.length>1?'s':'')+' today'+(over?', '+over+' overdue':''):'No tasks due today'}${hs.length?' · '+hd+'/'+hs.length+' habits':''}</div></div>
+  return `<div class="hero"><div class="hero-top"><span class="logo">${LOGO}Mine</span><a class="icon-btn" href="#prefs" aria-label="Settings">${I.gear}</a></div><div class="date">${WD[d.getDay()]} <span>${d.getDate()} ${MON[d.getMonth()]}</span></div><div class="sub">${greet}. ${[modOn('tasks')?(tasks.length?tasks.length+' task'+(tasks.length>1?'s':'')+' today'+(over?', '+over+' overdue':''):'No tasks due today'):'',modOn('habits')&&hs.length?hd+'/'+hs.length+' habits':''].filter(Boolean).join(' · ')||'Have a good day'}</div></div>
   ${alarmBanner()}
-  ${smsBanner()}
-  <div class="ledger"><div><div class="k">Tasks today</div><div class="v num">${tasks.length}</div></div><div><div class="k">Habits done</div><div class="v num">${hd}/${hs.length}</div></div><div><div class="k">Spent in ${MON[d.getMonth()]}</div><div class="v num">${inr(spent)}</div></div><div><div class="k">Carpool to collect</div><div class="v num pos">${inr(collect)}</div></div></div>
+  ${modOn('money')?smsBanner():''}
+  ${(()=>{const cells=[modOn('tasks')&&`<div><div class="k">Tasks today</div><div class="v num">${tasks.length}</div></div>`,modOn('habits')&&`<div><div class="k">Habits done</div><div class="v num">${hd}/${hs.length}</div></div>`,modOn('money')&&`<div><div class="k">Spent in ${MON[d.getMonth()]}</div><div class="v num">${inr(spent)}</div></div>`,modOn('carpool')&&`<div><div class="k">Carpool to collect</div><div class="v num pos">${inr(collect)}</div></div>`].filter(Boolean);return cells.length?`<div class="ledger">${cells.join('')}</div>`:''})()}
   <div class="grid2"><div>
-    <div class="panel"><div class="panel-head"><h3>Today’s tasks</h3><a class="btn sm ghost" href="#tasks" data-act="goto-today-tasks">All tasks</a></div>
+    ${modOn('tasks')?`<div class="panel"><div class="panel-head"><h3>Today’s tasks</h3><a class="btn sm ghost" href="#tasks" data-act="goto-today-tasks">All tasks</a></div>
       <div class="quick"><input id="quick" placeholder="Add a task, e.g. Call bank 4pm" autocomplete="off" data-date="${n}" aria-label="Add a task for today"><button class="btn primary sm" data-act="quick-add">Add</button></div><div class="quick-hint" id="quick-hint"></div>
-      ${tasks.map(t=>taskRow(t)).join('')||'<div class="empty">All clear for today.</div>'}</div>
+      ${tasks.map(t=>taskRow(t)).join('')||'<div class="empty">All clear for today.</div>'}</div>`:''}
     <div class="panel"><div class="panel-head"><h3>Next alarms</h3></div>${next.map(a=>`<div class="row" style="padding:6px 0"><span class="num" style="font-weight:700;min-width:86px">${ymd(a.at)===n?'':(ymd(a.at)===ymd(addDays(d,1))?'Tmrw ':'')}${fmtTime(hhmm(a.at))}</span><span class="grow">${esc(a.title)}</span><span class="tiny muted">${a.kind==='habit'?'Habit':a.kind==='card'?'Card':'Task'}</span></div>`).join('')||'<div class="empty">No alarms in the next 36 hours.</div>'}</div>
   </div><div>
-    <div class="panel"><div class="panel-head"><h3>Habits</h3><a class="btn sm ghost" href="#habits">Open</a></div>${hs.map(x=>habitRow(x,true)).join('')||`<div class="empty">No habits yet. <a href="#habits">Add one</a>.</div>`}</div>
-    <div class="panel flush"><div class="panel-head"><h3>Recent spending</h3><button class="btn sm" data-act="tx-new" data-v="expense">${I.plus} Expense</button></div>${recent.map(t=>{const a=acctById(t.acc);return `<div class="txrow" data-act="tx-edit" data-id="${t.id}"><div class="txicon">${esc(CAT_ICON[t.cat]||'•')}</div><div class="grow"><div style="font-weight:600">${esc(t.note||t.cat)}</div><div class="tiny muted">${fmtDay(t.date)}${a?' · '+esc(a.name):''}</div></div><div class="txamt num neg">${inr(t.amount)}</div></div>`}).join('')||'<div class="empty">Nothing logged yet.</div>'}</div>
+    ${modOn('habits')?`<div class="panel"><div class="panel-head"><h3>Habits</h3><a class="btn sm ghost" href="#habits">Open</a></div>${hs.map(x=>habitRow(x,true)).join('')||`<div class="empty">No habits yet. <a href="#habits">Add one</a>.</div>`}</div>`:''}
+    ${modOn('money')?`<div class="panel flush"><div class="panel-head"><h3>Recent spending</h3><button class="btn sm" data-act="tx-new" data-v="expense">${I.plus} Expense</button></div>${recent.map(t=>{const a=acctById(t.acc);return `<div class="txrow" data-act="tx-edit" data-id="${t.id}"><div class="txicon">${esc(CAT_ICON[t.cat]||'•')}</div><div class="grow"><div style="font-weight:600">${esc(t.note||t.cat)}</div><div class="tiny muted">${fmtDay(t.date)}${a?' · '+esc(a.name):''}</div></div><div class="txamt num neg">${inr(t.amount)}</div></div>`}).join('')||'<div class="empty">Nothing logged yet.</div>'}</div>`:''}
   </div></div>`;
 }
 
@@ -1421,6 +1434,7 @@ function viewPrefs(){
   const st=S.settings, np='Notification' in window?Notification.permission:'unsupported';
   return `<div class="page-head"><div><h1>Settings</h1><div class="sub"><span class="sync"><i></i>${syncLabel()}</span></div></div></div>
   <div class="grid2"><div>
+  ${modulesPanel()}
   ${themePanel()}
   ${NATIVE?lockPanel():""}
   ${NATIVE?watchPanel():""}
@@ -1614,6 +1628,8 @@ ui(async e=>{
     case 'dismiss-notif': el.closest('.banner').remove(); break;
     /* settings */
     case 'test-sound': Snd.unlock(); setTimeout(()=>Snd.play(S.settings.sound,false),100); break;
+    case 'mod-toggle': {const off=new Set(S.settings.modOff||[]);if(off.has(v))off.delete(v);else{if(modules().length<=1)return toast('Keep at least one module on');off.add(v)}S.settings.modOff=[...off];Store.mark('settings');render();break}
+    case 'mod-move': {const o=modOrder(),i=o.indexOf(v),j=i+ +el.dataset.d;if(j<0||j>=o.length)break;[o[i],o[j]]=[o[j],o[i]];S.settings.modOrder=o;Store.mark('settings');render();break}
     case 'missed-toggle': S.settings.missedOn=S.settings.missedOn===false; Store.mark('settings'); syncNative(); render(); toast(S.settings.missedOn?'Missed tasks will ring daily at '+fmtTime(S.settings.missedTime||'09:00'):'Missed-task reminders off'); break;
     case 'accent': S.settings.accent=v; applyTheme(); Store.mark('settings'); render(); break;
     case 'theme': S.settings.theme=v; applyTheme(); Store.mark('settings'); render(); break;
