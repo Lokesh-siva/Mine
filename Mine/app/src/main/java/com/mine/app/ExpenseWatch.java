@@ -285,6 +285,22 @@ public class ExpenseWatch extends BroadcastReceiver {
         return new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date(ts));
     }
 
+    /** The full SMS for a candidate id like "sms123", as {body, ts, addr}, or "" when it's gone from the inbox. */
+    static String message(Context c, String id) {
+        if (!hasSmsPermission(c) || id == null || !id.startsWith("sms")) return "";
+        try (Cursor cur = c.getContentResolver().query(Uri.parse("content://sms"),
+                new String[]{"body", "date", "address"}, "_id = ?", new String[]{id.substring(3)}, null)) {
+            if (cur == null || !cur.moveToFirst()) return "";
+            JSONObject o = new JSONObject();
+            o.put("body", cur.getString(0));
+            o.put("ts", cur.getLong(1));
+            o.put("addr", cur.getString(2));
+            return o.toString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
     static String candidates(Context c) {
         return prefs(c).getString("cands", "[]");
     }

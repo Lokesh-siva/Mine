@@ -151,6 +151,24 @@ public class Bridge {
     }
 
     @JavascriptInterface
+    public String smsMessage(String id) {
+        return ExpenseWatch.message(activity.getApplicationContext(), id);
+    }
+
+    /** Opens the sender's conversation in the phone's messaging app. */
+    @JavascriptInterface
+    public boolean smsOpen(String addr) {
+        try {
+            Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse("smsto:" + Uri.encode(addr)));
+            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            activity.startActivity(i);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    @JavascriptInterface
     public String smsIgnored() {
         return ExpenseWatch.ignoredCandidates(activity.getApplicationContext());
     }
