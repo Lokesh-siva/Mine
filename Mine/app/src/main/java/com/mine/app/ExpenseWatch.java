@@ -158,7 +158,9 @@ public class ExpenseWatch extends BroadcastReceiver {
             Pattern.compile("\\binfo[:\\s]+([A-Za-z0-9 &'._@/\\-]{2,40}?)(?=[.,;(]|\\s+avl|$)", Pattern.CASE_INSENSITIVE),
     };
     private static final String[] DEBIT = {"debited", "spent", "paid", "sent", "purchase", "withdrawn", "debit", " dr ", "dr.", "txn of", "used for",
-            "used at", "transaction of", "made using", "charged"};
+            "used at", "used on", "used to", "transaction of", "made using", "charged",
+            // banks add a "Not you? Block your card" warning to every card or UPI debit alert
+            "not you"};
     private static final String[] SKIP = {"otp", "one time password", "will be debited", "to be debited", "requested", "request", "due on", "due by",
             "statement", "min amt", "minimum amount", "offer", "cashback", "reward", "failed", "declined", "reversed", "refund", "unsuccessful"};
 
