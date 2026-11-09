@@ -1050,6 +1050,8 @@ function nextDue(a){
   const now=new Date(); const mk=(y,m)=>{const last=new Date(y,m+1,0).getDate();return new Date(y,m,Math.min(a.dueDay,last))};
   let d=mk(now.getFullYear(),now.getMonth()); if(ymd(d)<todayS()) d=mk(now.getFullYear(),now.getMonth()+1); return d;
 }
+// Newest first: by date, then time of day, then when it was entered
+const txOrder=(a,b)=>a.date!==b.date?(a.date<b.date?1:-1):(a.time||'')!==(b.time||'')?((a.time||'')<(b.time||'')?1:-1):(b.created||0)-(a.created||0);
 function monthTx(ym){return S.txns.filter(t=>t.date.slice(0,7)===ym)}
 function viewMoney(){
   if(!UI.monthYM) UI.monthYM=todayS().slice(0,7);
@@ -1065,7 +1067,7 @@ function viewMoney(){
   const catList=Object.entries(cats).sort((a,b)=>b[1]-a[1]); const maxC=catList.length?catList[0][1]:1;
   const dim=new Date(y,m,0).getDate(), owe=splitTotal();
   const q=UI.txSearch.toLowerCase();
-  const shown=fx.filter(t=>!q||(t.note||'').toLowerCase().includes(q)||(t.cat||'').toLowerCase().includes(q)||String(t.amount).includes(q)).sort((a,b)=>a.date===b.date?(b.created||0)-(a.created||0):a.date<b.date?1:-1);
+  const shown=fx.filter(t=>!q||(t.note||'').toLowerCase().includes(q)||(t.cat||'').toLowerCase().includes(q)||String(t.amount).includes(q)).sort(txOrder);
   const accts=S.accounts.length?`<div class="accts">
     <button class="acct" data-act="acct-filter" data-v="all" aria-pressed="${af==='all'}"><div class="t">All</div><div class="n">Everything</div><div class="b num">${inr(sum(exp))}</div><div class="tiny muted">Spent</div></button>
     ${S.accounts.map(a=>`<button class="acct ${a.type==='card'?'card':''}" data-act="acct-filter" data-v="${a.id}" aria-pressed="${af===a.id}"><div class="t">${ACCT_TYPES.find(x=>x[0]===a.type)[1]}</div><div class="n">${esc(a.name)}</div><div class="b num">${inr(sum(exp.filter(t=>t.acc===a.id)))}</div><div class="tiny muted">Spent</div></button>`).join('')}
@@ -1074,7 +1076,7 @@ function viewMoney(){
   shown.slice(0,300).forEach(t=>{
     if(t.date!==lastD){list+=`<div class="datehead"><span>${fmtDay(t.date)}</span><span class="num">${inr(sum(shown.filter(x=>x.date===t.date)))}</span></div>`;lastD=t.date}
     const a=acctById(t.acc);
-    list+=`<div class="txrow" data-act="tx-edit" data-id="${t.id}"><div class="txicon">${esc(CAT_ICON[t.cat]||'•')}</div><div class="grow"><div style="font-weight:600">${esc(t.note||t.cat)}</div><div class="tiny muted">${esc([t.note?t.cat:'',a?a.name:'',t.split&&t.split.ppl.length?'👥 '+t.split.ppl.map(x=>(personById(x.p)||{name:'?'}).name).join(', '):''].filter(Boolean).join(' · '))}</div></div><div style="text-align:right"><div class="txamt num neg">${inr(t.amount)}</div>${splitBack(t)?`<div class="tiny pos num">${inr(splitBack(t))} to get</div>`:''}</div></div>`;
+    list+=`<div class="txrow" data-act="tx-edit" data-id="${t.id}"><div class="txicon">${esc(CAT_ICON[t.cat]||'•')}</div><div class="grow"><div style="font-weight:600">${esc(t.note||t.cat)}</div><div class="tiny muted">${esc([t.time?fmtTime(t.time):'',t.note?t.cat:'',a?a.name:'',t.split&&t.split.ppl.length?'👥 '+t.split.ppl.map(x=>(personById(x.p)||{name:'?'}).name).join(', '):''].filter(Boolean).join(' · '))}</div></div><div style="text-align:right"><div class="txamt num neg">${inr(t.amount)}</div>${splitBack(t)?`<div class="tiny pos num">${inr(splitBack(t))} to get</div>`:''}</div></div>`;
   });
   return `<div class="page-head"><div><h1>Expenses</h1><div class="row" style="margin-top:4px"><button class="icon-btn" data-act="month-nav" data-v="-1" aria-label="Previous month">${I.left}</button><b>${MONL[m-1]} ${y}</b><button class="icon-btn" data-act="month-nav" data-v="1" aria-label="Next month">${I.right}</button></div></div>
     <div class="row wrap"><button class="btn sm" data-act="review-open" data-v="week">Review</button>${NATIVE?`<button class="btn sm" data-act="sms-check">Check SMS</button>`:''}<button class="btn sm" data-act="split-open">Splits${owe?' · '+inr(owe):''}</button><button class="btn sm" data-act="acct-manage">Paid with</button><button class="btn sm" data-act="tx-csv" aria-label="Download CSV">${I.download}</button></div></div>
@@ -1150,6 +1152,12 @@ function smsMsgFill(el){
   b.innerHTML=`<div class="row" style="gap:8px"><div class="tiny muted grow">${esc(m.addr||'')} · ${when}</div><button class="btn sm ghost" data-act="sms-open" data-v="${esc(m.addr||'')}">Open in Messages</button></div><p>${esc(m.body||'')}</p>`;
 }
 document.addEventListener('toggle',e=>{const el=e.target;if(el.classList&&el.classList.contains('smsmsg')&&el.open&&!el.dataset.done){el.dataset.done=1;smsMsgFill(el)}},true);
+// Expenses added from SMS before times were kept: take the time the SMS arrived
+function smsTimeBackfill(){
+  if(!NATIVE) return; const ms=new Set();
+  S.txns.forEach(t=>{if(t.smsId&&!t.time){const m=smsMsg(t.smsId);if(m&&m.ts){t.time=hhmm(new Date(m.ts));ms.add('txn_'+t.date.slice(0,7))}}});
+  if(ms.size) Store.mark(...ms);
+}
 function smsSetFrom(ms){
   let n=0;try{n=window.MineNative.smsSince(ms)}catch(err){}
   toast(n?n+' bank message'+(n>1?'s':'')+' found':'No new bank messages');render();smsReviewSheet();
@@ -1157,13 +1165,13 @@ function smsSetFrom(ms){
 function smsAdd(id){
   const o=smsCands().concat(smsIgnored()).find(x=>x.id===id); if(!o) return;
   const a=acctByLast4(o.last4), k=merchKey(o.merchant), c=autoCat(o)||{};
-  openTx(null,'expense',{amount:o.amt,date:o.date,note:c.note||o.merchant||'',acc:c.acc||(a?a.id:''),cat:c.cat||null,smsId:o.id},{mkey:k,fromSms:true});
+  openTx(null,'expense',{amount:o.amt,date:o.date,time:o.ts?hhmm(new Date(o.ts)):'',note:c.note||o.merchant||'',acc:c.acc||(a?a.id:''),cat:c.cat||null,smsId:o.id},{mkey:k,fromSms:true});
 }
 // Adds an auto-categorized SMS debit as an expense without opening the editor
 function smsApprove(id,quiet){
   const o=smsCands().find(x=>x.id===id), c=o&&autoCat(o); if(!c) return 0;
   const a=acctByLast4(o.last4);
-  S.txns.push({id:uid(),type:'expense',amount:r2(o.amt),acc:c.acc||(a?a.id:''),cat:c.cat,note:c.note||o.merchant||'',date:o.date,created:Date.now(),smsId:o.id});
+  S.txns.push({id:uid(),type:'expense',amount:r2(o.amt),acc:c.acc||(a?a.id:''),cat:c.cat,note:c.note||o.merchant||'',date:o.date,...(o.ts?{time:hhmm(new Date(o.ts))}:{}),created:Date.now(),smsId:o.id});
   Store.mark('money','txn_'+o.date.slice(0,7));
   if(!quiet){render();smsReviewSheet();toast('Added '+inr(o.amt)+' to '+c.cat)}
   return o.amt;
@@ -1272,7 +1280,7 @@ function renderReview(){
     <div class="panel"><h3 style="margin-bottom:6px">By category</h3>${donut(group(t=>t.cat||'Other'),inr(total),'spent')}${catCmp()}</div>
     ${owe?`<button class="banner" data-act="split-open">👥<div class="grow"><b>${inr(owe)} to collect from splits</b><div class="small">${ppl} ${ppl>1?'people owe':'person owes'} you a share of expenses</div></div><span class="go">See</span></button>`:''}
     <div class="panel"><h3 style="margin-bottom:6px">By payment method</h3>${bars(group(t=>(acctById(t.acc)||{}).name||'Not set'),k=>{const a=S.accounts.find(x=>x.name===k);return a?(a.type==='card'?'💳':a.type==='cash'?'💵':a.type==='wallet'?'📱':'🏦'):'•'})}</div>
-    <div class="panel flush"><div class="panel-head"><h3>Biggest expenses</h3></div>${big.map(t=>`<div class="txrow"><div class="txicon">${esc(CAT_ICON[t.cat]||'•')}</div><div class="grow"><div style="font-weight:600">${esc(t.note||t.cat)}</div><div class="tiny muted">${fmtDay(t.date)}${acctById(t.acc)?' · '+esc(acctById(t.acc).name):''}</div></div><div class="txamt num neg">${inr(t.amount)}</div></div>`).join('')||'<div class="empty">No expenses.</div>'}</div>
+    <div class="panel flush"><div class="panel-head"><h3>Biggest expenses</h3></div>${big.map(t=>`<div class="txrow"><div class="txicon">${esc(CAT_ICON[t.cat]||'•')}</div><div class="grow"><div style="font-weight:600">${esc(t.note||t.cat)}</div><div class="tiny muted">${fmtDay(t.date)}${t.time?' '+fmtTime(t.time):''}${acctById(t.acc)?' · '+esc(acctById(t.acc).name):''}</div></div><div class="txamt num neg">${inr(t.amount)}</div></div>`).join('')||'<div class="empty">No expenses.</div>'}</div>
     <button class="btn primary done" data-act="review-close">Done</button>
   </div>`;
 }
@@ -1295,7 +1303,8 @@ function txEditor(t,isNew){
   const opts=`<option value="">—</option>`+S.accounts.map(a=>`<option value="${a.id}" ${t.acc===a.id?'selected':''}>${esc(a.name)}</option>`).join('');
   return sheetHead(isNew?'Add expense':'Edit expense')+`
   <label class="f" for="x-amt">Amount (₹)</label><input class="in big num" id="x-amt" type="number" inputmode="decimal" step="0.01" min="0" value="${t.amount||''}" placeholder="0" autofocus>
-  <div class="frow"><div><label class="f" for="x-date">Date</label><input class="in" type="date" id="x-date" value="${t.date}"></div><div><label class="f" for="x-acc">Paid with</label><select class="in" id="x-acc">${opts}</select></div></div>
+  <div class="frow"><div><label class="f" for="x-date">Date</label><input class="in" type="date" id="x-date" value="${t.date}"></div><div><label class="f" for="x-time">Time</label><input class="in" type="time" id="x-time" value="${t.time||''}"></div></div>
+  <label class="f" for="x-acc">Paid with</label><select class="in" id="x-acc">${opts}</select>
   <label class="f">Category</label><div class="catpick" id="x-cat">${S.cats.exp.map(c=>`<button type="button" data-act="tog1" data-v="${esc(c)}" aria-pressed="${t.cat===c}">${esc(CAT_ICON[c]||'')} ${esc(c)}</button>`).join('')}</div>
   <label class="f" for="x-note">Note</label><input class="in" id="x-note" value="${esc(t.note||'')}" placeholder="Swiggy, petrol, electricity bill…">
   <label class="f">Split with</label><div class="riderpick" id="x-split"></div>
@@ -1306,7 +1315,7 @@ function txEditor(t,isNew){
 }
 function openTx(id,type,pre,extra){
   const last=S.txns.slice().sort((a,b)=>(b.created||0)-(a.created||0))[0];
-  const t=id?JSON.parse(JSON.stringify(S.txns.find(x=>x.id===id))):{id:uid(),type:'expense',amount:'',acc:(UI.acctFilter!=='all'?UI.acctFilter:(last&&last.acc))||'',cat:null,note:'',date:todayS(),created:Date.now()};
+  const t=id?JSON.parse(JSON.stringify(S.txns.find(x=>x.id===id))):{id:uid(),type:'expense',amount:'',acc:(UI.acctFilter!=='all'?UI.acctFilter:(last&&last.acc))||'',cat:null,note:'',date:todayS(),time:hhmm(new Date()),created:Date.now()};
   if(pre) Object.assign(t,pre);
   if(!t.cat||t.type!=='expense'){t.type='expense';t.cat=S.cats.exp.includes(t.cat)?t.cat:S.cats.exp[0]}
   const split=t.split?JSON.parse(JSON.stringify(t.split)):{me:true,ppl:[]};
@@ -1314,7 +1323,7 @@ function openTx(id,type,pre,extra){
   openModal(txEditor(t,!id),Object.assign({type:'tx',tx:t,isNew:!id,origMonth:id?t.date.slice(0,7):null,split},extra||{}));
   splitBox();
 }
-function readTxForm(){const t=modalCtx.tx;t.amount=$('#x-amt').value;t.acc=$('#x-acc').value;if($('#x-to'))t.to=$('#x-to').value;t.date=$('#x-date').value||todayS();const c=$('#x-cat [aria-pressed="true"]');if(c)t.cat=c.dataset.v;t.note=$('#x-note').value.trim();return t}
+function readTxForm(){const t=modalCtx.tx;t.amount=$('#x-amt').value;t.acc=$('#x-acc').value;if($('#x-to'))t.to=$('#x-to').value;t.date=$('#x-date').value||todayS();t.time=$('#x-time').value||'';if(!t.time)delete t.time;const c=$('#x-cat [aria-pressed="true"]');if(c)t.cat=c.dataset.v;t.note=$('#x-note').value.trim();return t}
 function saveTxFromModal(){
   const c=modalCtx,t=readTxForm(); const v=r2(t.amount);
   if(!(v>0)){$('#x-amt').focus();return toast('Enter an amount')}
@@ -1717,7 +1726,7 @@ ui(async e=>{
     case 'tx-edit': openTx(id); break;
     case 'tx-save': saveTxFromModal(); break;
     case 'tx-del': confirmBox('Delete this transaction?','Delete',()=>{const t=S.txns.find(x=>x.id===id);S.txns=S.txns.filter(x=>x.id!==id);S.pays.forEach(p=>{if(p.txId===id)delete p.txId});Store.mark('money','carpool','txn_'+t.date.slice(0,7));render()}); break;
-    case 'tx-csv': {const rows=[['Date','Amount','Category','Paid with','Note']].concat(S.txns.filter(t=>t.type==='expense').sort((a,b)=>a.date<b.date?-1:1).map(t=>[t.date,t.amount,t.cat||'',(acctById(t.acc)||{}).name||'',t.note||'']));saveFile('mine-expenses.csv',rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n'));break}
+    case 'tx-csv': {const rows=[['Date','Time','Amount','Category','Paid with','Note']].concat(S.txns.filter(t=>t.type==='expense').sort((a,b)=>-txOrder(a,b)).map(t=>[t.date,t.time||'',t.amount,t.cat||'',(acctById(t.acc)||{}).name||'',t.note||'']));saveFile('mine-expenses.csv',rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n'));break}
     case 'budget': {location.hash='prefs';setTimeout(()=>{const b=$('#s-budget');b&&b.focus()},50);break}
     case 'acct-manage': acctManager(); break;
     case 'acct-new': openAcct(); break;
@@ -1803,7 +1812,7 @@ window.addEventListener('hashchange',()=>{if(route()==='tasks')UI.sel='all';rend
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){checkAlarms();if(['today','habits'].includes(route()))render()}});
 
 /* ================= init ================= */
-Store.loadLocal(); applyTheme(); render(); syncNative();
+Store.loadLocal(); applyTheme(); smsTimeBackfill(); render(); syncNative();
 let lastDay=todayS();
 setInterval(()=>{checkAlarms();if(todayS()!==lastDay){lastDay=todayS();syncNative();if(!$('#modal').classList.contains('open'))render()}},15000);
 setTimeout(checkAlarms,1500);
