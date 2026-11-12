@@ -2,6 +2,7 @@ package com.mine.app;
 
 import android.app.AlarmManager;
 import android.app.NotificationManager;
+import android.content.ClipData;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
@@ -10,6 +11,7 @@ import android.os.Build;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.provider.Settings;
+import android.util.Base64;
 import android.webkit.JavascriptInterface;
 
 import org.json.JSONObject;
@@ -205,6 +207,51 @@ public class Bridge {
     @JavascriptInterface
     public void setAccent(String hex) {
         Theme.setAccent(activity.getApplicationContext(), hex);
+    }
+
+    @JavascriptInterface
+    public boolean shareText(String text) {
+        Intent send = new Intent(Intent.ACTION_SEND);
+        send.setType("text/plain");
+        send.putExtra(Intent.EXTRA_TEXT, text);
+        return startShare(send);
+    }
+
+    /** Shares a PNG (base64, with or without a data: prefix) with an optional caption. */
+    @JavascriptInterface
+    public boolean shareImage(String base64, String text) {
+        try {
+            String b = base64.substring(base64.indexOf(',') + 1);
+            byte[] png = Base64.decode(b, Base64.DEFAULT);
+            File f = new File(ShareProvider.dir(activity), "mine-review.png");
+            try (FileOutputStream os = new FileOutputStream(f)) {
+                os.write(png);
+            }
+            Uri uri = ShareProvider.uriFor(f.getName());
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType("image/png");
+            send.putExtra(Intent.EXTRA_STREAM, uri);
+            if (text != null && !text.isEmpty()) send.putExtra(Intent.EXTRA_TEXT, text);
+            send.setClipData(ClipData.newRawUri("", uri));
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            return startShare(send);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean startShare(Intent send) {
+        try {
+            Intent chooser = Intent.createChooser(send, "Share review");
+            if (send.getClipData() != null) {
+                chooser.setClipData(send.getClipData());
+                chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            }
+            activity.runOnUiThread(() -> activity.startActivity(chooser));
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @JavascriptInterface

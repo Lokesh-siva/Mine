@@ -1267,7 +1267,9 @@ function renderReview(){
     return rows.length?rows.map(([k,v],i)=>{const d=r2(v-(pm[k]||0));return `<div class="catrow"><span>${esc(CAT_ICON[k]||'•')} ${esc(k)}</span><div class="bar"><i style="width:${v/rows[0][1]*100}%;background:${CHART_COLS[Math.min(i,7)]}"></i></div><span class="num" style="font-weight:600;text-align:right">${inr(v)}<div class="tiny ${d>0?'neg':'pos'}" style="font-weight:500">${!pm[k]?'new':d>0?'▲ '+inr(d):d<0?'▼ '+inr(-d):'same'}</div></span></div>`}).join(''):'<div class="empty">Nothing spent.</div>'};
   el.innerHTML=`<div class="wrap">
     <div class="top"><button class="icon-btn" data-act="review-close" aria-label="Close">${I.x}</button><div class="grow"></div>
+      <button class="btn sm" data-act="review-share" aria-expanded="${!!UI.rvShare}">Share</button>
       <div class="seg">${[['week','Week'],['month','Month']].map(([k,l])=>`<button data-act="review-kind" data-v="${k}" aria-pressed="${RV.kind===k}">${l}</button>`).join('')}</div></div>
+    ${UI.rvShare?`<div class="row" style="justify-content:flex-end;gap:8px;margin:-8px 0 14px"><span class="tiny muted grow">Share this ${wk?'week':'month'} as</span><button class="btn sm" data-act="review-share-as" data-v="image">🖼️ Image</button><button class="btn sm" data-act="review-share-as" data-v="text">📝 Text</button></div>`:''}
     <div class="hero"><div class="eyebrow">${wk?'Weekly':'Monthly'} expense review</div>
       <div class="row" style="justify-content:center;gap:4px;margin-top:4px"><button class="icon-btn" data-act="review-nav" data-v="-1" aria-label="Previous">${I.left}</button><div class="range">${fmtR}</div><button class="icon-btn" data-act="review-nav" data-v="1" aria-label="Next" ${r.e>=n?'disabled style="opacity:.3"':''}>${I.right}</button></div>
       <div class="total num">${inr(total)}</div>
@@ -1283,6 +1285,87 @@ function renderReview(){
     <div class="panel flush"><div class="panel-head"><h3>Biggest expenses</h3></div>${big.map(t=>`<div class="txrow"><div class="txicon">${esc(CAT_ICON[t.cat]||'•')}</div><div class="grow"><div style="font-weight:600">${esc(t.note||t.cat)}</div><div class="tiny muted">${fmtDay(t.date)}${t.time?' '+fmtTime(t.time):''}${acctById(t.acc)?' · '+esc(acctById(t.acc).name):''}</div></div><div class="txamt num neg">${inr(t.amount)}</div></div>`).join('')||'<div class="empty">No expenses.</div>'}</div>
     <button class="btn primary done" data-act="review-close">Done</button>
   </div>`;
+}
+/* ----- sharing the review as an image or text ----- */
+function rvStats(){
+  const r=rvRange(),wk=RV.kind==='week',n=todayS();
+  const tx=S.txns.filter(t=>t.type==='expense'&&t.date>=r.s&&t.date<=r.e),total=spentIn(r.s,r.e),prev=spentIn(r.ps,r.pe),diff=r2(total-prev);
+  const days=n<r.s?0:n>r.e?dayNum(r.e)-dayNum(r.s)+1:dayNum(n)-dayNum(r.s)+1;
+  const cm={};tx.forEach(t=>{const k=t.cat||'Other';cm[k]=(cm[k]||0)+ +t.amount});
+  const cats=Object.entries(cm).sort((a,b)=>b[1]-a[1]),big=tx.slice().sort((a,b)=>b.amount-a.amount).slice(0,5);
+  const title=wk?`${r.sd.getDate()} ${MON[r.sd.getMonth()]} – ${r.ed.getDate()} ${MON[r.ed.getMonth()]} ${r.ed.getFullYear()}`:`${MONL[r.sd.getMonth()]} ${r.sd.getFullYear()}`;
+  const dayRows=[];for(let i=0;i<=dayNum(r.e)-dayNum(r.s);i++){const d=addDays(r.sd,i),k=ymd(d);dayRows.push({d,v:spentIn(k,k)})}
+  return {r,wk,tx,total,prev,diff,days,cats,big,title,dayRows,period:wk?'week':'month'};
+}
+const shortDay=s=>{const d=parseYmd(s);return d.getDate()+' '+MON[d.getMonth()]};
+function reviewText(){
+  const x=rvStats();
+  const lines=[`📊 ${x.wk?'Weekly':'Monthly'} expense review · ${x.title}`,`Spent ${inr(x.total)}`+(x.prev||x.total?` (${x.diff>0?'▲ '+inr(x.diff)+' more':x.diff<0?'▼ '+inr(-x.diff)+' less':'same'} than last ${x.period})`:''),`${x.tx.length} expense${x.tx.length===1?'':'s'} · ${inr(x.days?x.total/x.days:0)} per day`];
+  if(x.cats.length){lines.push('','By category');x.cats.forEach(([k,v])=>lines.push(`${CAT_ICON[k]||'•'} ${k}: ${inr(v)} (${Math.round(v/x.total*100)}%)`))}
+  if(x.big.length){lines.push('','Biggest expenses');x.big.forEach(t=>lines.push(`• ${t.note||t.cat}: ${inr(t.amount)} (${shortDay(t.date)})`))}
+  return lines.join('\n');
+}
+async function reviewImage(){
+  const x=rvStats(),W=1080,P=64,cs=getComputedStyle(document.documentElement);
+  const BODY=cs.getPropertyValue('--body').trim()||'sans-serif',DISP=cs.getPropertyValue('--display').trim()||BODY;
+  try{await document.fonts.ready}catch(e){}
+  const acc=S.settings.accent||'#3DDC84',cols=CHART_COLS.map(c=>c.startsWith('var')?acc:c);
+  const C={bg:'#0B110E',card:'#141D18',line:'#24322B',ink:'#E8F1EB',muted:'#9DB0A4',neg:'#FF8A80',pos:'#7BE3A6'};
+  const cv=document.createElement('canvas');cv.width=W;cv.height=3200;const g=cv.getContext('2d');
+  const font=(px,w,f)=>g.font=`${w||400} ${px}px ${f||BODY}`;
+  const text=(t,xx,yy,o={})=>{font(o.px||32,o.w,o.f);g.fillStyle=o.c||C.ink;g.textAlign=o.al||'left';g.textBaseline='alphabetic';
+    let s=String(t);if(o.max){while(s.length>1&&g.measureText(s).width>o.max)s=s.slice(0,-2)+'…'}g.fillText(s,xx,yy);return g.measureText(s).width};
+  const rr=(xx,yy,w,h,r,fill)=>{g.beginPath();g.roundRect?g.roundRect(xx,yy,w,h,r):g.rect(xx,yy,w,h);g.fillStyle=fill;g.fill()};
+  const card=(yy,h)=>rr(P,yy,W-2*P,h,32,C.card);
+  g.fillStyle=C.bg;g.fillRect(0,0,W,cv.height);
+  let y=P+30;
+  text((x.wk?'WEEKLY':'MONTHLY')+' EXPENSE REVIEW',P,y,{px:28,w:700,c:acc});y+=74;
+  text(x.title,P,y,{px:60,w:800,f:DISP});y+=150;
+  text(inr(x.total),P,y,{px:120,w:800,f:DISP});y+=70;
+  if(x.prev||x.total){const up=x.diff>0,lbl=`${up?'▲':x.diff<0?'▼':'='} ${inr(Math.abs(x.diff))} ${up?'more':x.diff<0?'less':'same'} than last ${x.period}`;font(30,600);const w=g.measureText(lbl).width+44;rr(P,y-42,w,58,29,up?'rgba(255,138,128,.16)':'rgba(123,227,166,.16)');text(lbl,P+22,y-3,{px:30,w:600,c:up?C.neg:C.pos})}
+  y+=60;
+  // stats
+  const stats=[['Expenses',String(x.tx.length)],['Per day',inr(x.days?x.total/x.days:0)],['Last '+x.period,inr(x.prev)]],sw=(W-2*P-2*24)/3;
+  stats.forEach(([k,v],i)=>{const sx=P+i*(sw+24);rr(sx,y,sw,150,28,C.card);text(k,sx+28,y+54,{px:26,c:C.muted});text(v,sx+28,y+112,{px:44,w:700,f:DISP,max:sw-56})});
+  y+=190;
+  // day by day
+  const ch=260;card(y,ch+150);text('Day by day',P+36,y+66,{px:34,w:700,f:DISP});
+  const bx=P+36,bw=W-2*P-72,by=y+100,n=x.dayRows.length,gap=n>7?6:24,cw=(bw-gap*(n-1))/n,mx=Math.max(1,...x.dayRows.map(d=>d.v));
+  x.dayRows.forEach((d,i)=>{const h=d.v?Math.max(6,d.v/mx*ch):0;rr(bx+i*(cw+gap),by+ch-h,cw,h,Math.min(10,cw/2),acc);
+    const dd=d.d.getDate(),lb=n<=7?'MTWTFSS'[(d.d.getDay()+6)%7]:(dd===1||dd%5===0?String(dd):'');if(lb)text(lb,bx+i*(cw+gap)+cw/2,by+ch+36,{px:22,c:C.muted,al:'center'})});
+  y+=ch+150+40;
+  // categories
+  if(x.cats.length){
+    const top=x.cats.slice(0,7);if(x.cats.length>7)top.push(['Others',x.cats.slice(7).reduce((a,c)=>a+c[1],0)]);
+    const h=Math.max(400,120+top.length*62);card(y,h);text('By category',P+36,y+66,{px:34,w:700,f:DISP});
+    const cx=P+36+140,cy=y+100+(h-120)/2,R=140;let a0=-Math.PI/2;
+    top.forEach(([k,v],i)=>{const a1=a0+v/x.total*Math.PI*2;g.beginPath();g.arc(cx,cy,R,a0,a1);g.arc(cx,cy,R-52,a1,a0,true);g.closePath();g.fillStyle=cols[i];g.fill();a0=a1});
+    const lx=P+36+320,lw=W-P-36-lx;let ly=y+130;
+    top.forEach(([k,v],i)=>{rr(lx,ly-22,22,22,6,cols[i]);text(`${CAT_ICON[k]||''} ${k}`,lx+36,ly,{px:28,max:lw-250});text(inr(v),W-P-36-90,ly,{px:28,w:700,al:'right'});text(Math.round(v/x.total*100)+'%',W-P-36,ly,{px:26,c:C.muted,al:'right'});ly+=62});
+    y+=h+40;
+  }
+  // biggest
+  if(x.big.length){
+    const h=110+x.big.length*96;card(y,h);text('Biggest expenses',P+36,y+66,{px:34,w:700,f:DISP});let ry=y+130;
+    x.big.forEach(t=>{text(CAT_ICON[t.cat]||'•',P+36,ry+12,{px:40});text(t.note||t.cat,P+110,ry,{px:30,w:600,max:W-2*P-400});text(shortDay(t.date)+(t.time?' · '+fmtTime(t.time):''),P+110,ry+38,{px:24,c:C.muted});text(inr(t.amount),W-P-36,ry+12,{px:32,w:700,al:'right',c:C.neg});ry+=96});
+    y+=h+40;
+  }
+  text('Made with Mine',W/2,y+20,{px:24,c:C.muted,al:'center'});y+=60;
+  const out=document.createElement('canvas');out.width=W;out.height=y;out.getContext('2d').drawImage(cv,0,0);
+  return out.toDataURL('image/png');
+}
+async function shareReview(kind){
+  const txt=reviewText();
+  if(kind==='text'){
+    if(NATIVE){try{if(window.MineNative.shareText(txt))return}catch(e){}}
+    if(navigator.share){try{await navigator.share({text:txt});return}catch(e){}}
+    try{await navigator.clipboard.writeText(txt);toast('Review copied')}catch(e){toast('Could not share')}
+    return;
+  }
+  toast('Making the image…');
+  const png=await reviewImage(), cap=txt.split('\n').slice(0,2).join('\n');
+  if(NATIVE){try{if(window.MineNative.shareImage(png,cap))return}catch(e){}toast('Could not share');return}
+  const a=document.createElement('a');a.href=png;a.download='mine-review.png';a.click();
 }
 function openReview(kind,start){RV.kind=kind;RV.start=start||new Date();renderReview();$('#review').classList.add('open');$('#review').scrollTop=0;document.body.classList.add('modal-open')}
 function closeReview(){$('#review').classList.remove('open');document.body.classList.remove('modal-open');try{window.MineNative.reviewClosed()}catch(e){}}
@@ -1721,6 +1804,8 @@ ui(async e=>{
     case 'watch-monthly': try{window.MineNative.setWatch('monthly',v==='on')}catch(err){} render(); break;
     case 'review-open': openReview(v); break;
     case 'review-close': closeReview(); break;
+    case 'review-share': UI.rvShare=!UI.rvShare; renderReview(); break;
+    case 'review-share-as': UI.rvShare=false; renderReview(); shareReview(v); break;
     case 'review-kind': RV.kind=v; RV.start=new Date(); renderReview(); break;
     case 'review-nav': {const b=RV.start||new Date();RV.start=RV.kind==='week'?addDays(b,7*v):new Date(b.getFullYear(),b.getMonth()+ +v,1);renderReview();$('#review').scrollTop=0;break}
     case 'tx-edit': openTx(id); break;
