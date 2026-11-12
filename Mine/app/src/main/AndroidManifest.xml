@@ -53,12 +53,6 @@
             android:name=".ExpenseWatch"
             android:exported="false" />
 
-        <provider
-            android:name=".ShareProvider"
-            android:authorities="com.mine.app.share"
-            android:exported="false"
-            android:grantUriPermissions="true" />
-
         <receiver
             android:name=".ExpenseWidget"
             android:exported="false"
