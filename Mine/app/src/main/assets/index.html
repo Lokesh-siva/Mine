@@ -1769,6 +1769,7 @@ const GSESS={
 const GPHASE=w=>w<=6?1:w<=12?2:3;
 const GPHASE_N=['','Full body foundation','Upper/lower split','Stronger + running'];
 function gymWeekTip(w){
+  if(gymProg()==='five') return 'Five gym days in order, whenever you can. At hometown or travelling? Use a home workout; it doesn’t use up your gym day. When 15 reps feels easy on the last round, go up in weight. Aim for 8,000–10,000 steps a day.';
   if(gymTrainer()) return 'Circuit days: go through all 6 exercises with your trainer’s rest after each, and repeat for '+(+S.gym.rounds||3)+' rounds. When the last round feels easy at 15 reps, go up in weight. Aim for 8,000–10,000 steps a day.';
   if(w<=2) return 'Weeks 1–2: 2 sets of each exercise with light weights. Focus only on form, and ask a trainer to check your squat and Romanian deadlift. Aim for 7,000 steps a day.';
   if(w<=4) return 'Weeks 3–4: 3 sets of each. Add weight when you hit the top of the rep range. Aim for 8,000 steps a day.';
@@ -1840,7 +1841,31 @@ function trainerDay(w,dow){
   if(dow===6) return {kind:'cardio',title:'HIIT',emoji:'⚡',items:[warm,{ex:'bike-int',rounds:10,work:30,rest:60,type:'interval',note:'10 × 30 s hard / 60 s easy on the bike or rower'},{ex:'walk',mins:5,note:'5 min easy walk to cool down'}],note:'Your trainer’s sheet only says “HIIT”, so this is a starting point. Swap in what your trainer shows you.'};
   return {kind:'walk',title:'Rest day walk',emoji:'🚶',items:[{ex:'walk',mins:45,note:'Walk 45–60 minutes, or rest if you’re sore'}]};
 }
-const gymTrainer=()=>S.gym.program!=='plan';
+// Mine's 5-day plan: your gym's circuits as the base, plus a legs day, a cardio day, core work and a cardio finisher each day.
+// Weekends at hometown are covered by the home workouts.
+const FIVE=[
+  {n:'Chest & back',e:'💪',circ:1,x:[['db-bench','12–15',45],['lat-pulldown','12–15',45],['db-shoulder-press','12–15',45],['goblet-squat','12–15',45],['db-curl','12–15',45],['triceps-pushdown','12–15',45],['plank','30–45 sec',60]],
+    fin:{ex:'incline-walk',mins:15,note:'15 min incline walk to finish'}},
+  {n:'Legs & core',e:'🦵',x:[['leg-press','12',90],['db-rdl','10–12',90],['walking-lunge','10 per leg',90],['leg-curl','12',60],['calf-raise','15',60],['cable-crunch','15',45],['hanging-knee-raise','10–12',45]],
+    fin:{ex:'bike-int',rounds:8,work:30,rest:90,type:'interval',note:'Finisher: 8 × 30 s hard / 90 s easy on the bike'}},
+  {n:'Shoulders & arms',e:'🎯',circ:1,x:[['incline-db-press','12–15',45],['high-row','12–15',45],['lateral-raise','12–15',45],['face-pull','15',45],['kickback','12–15',45],['preacher-curl','12–15',45],['bw-squat','15',60]],
+    fin:{ex:'incline-walk',mins:15,note:'15 min incline walk to finish'}},
+  {n:'Cardio & abs',e:'🔥',pre:[{ex:'walk',mins:5,note:'5 min brisk walk to warm up'},{ex:'rower',rounds:10,work:30,rest:60,type:'interval',note:'10 × 30 s hard / 60 s easy on the rower or bike'},{ex:'incline-walk',mins:20,note:'20 min incline walk'}],
+    x:[['dead-bug','10 per side',45],['side-plank','30 sec each side',45],['russian-twist','20',45],['leg-raise','12',45]]},
+  {n:'Full body',e:'🏋️',circ:1,x:[['decline-press','12–15',45],['close-pulldown','12–15',45],['machine-shoulder-press','12–15',45],['hip-thrust','12',45],['oh-triceps','12–15',45],['bb-curl','12–15',45],['leg-extension','12–15',60]],
+    fin:{ex:'bike',mins:15,note:'15 min steady bike to finish'}}
+];
+function fiveDay(d){
+  const f=FIVE[d],R=+S.gym.rounds||3,warm={ex:'warmup-bike',mins:5,note:'5 min easy on the bike'};
+  const sets=f.x.map(([ex,reps,rest])=>({ex,sets:f.circ?R:3,reps,rest}));
+  return {kind:d===3?'cardio':'gym',title:f.n,emoji:f.e,circuit:f.circ?R:0,items:(f.pre||[warm]).concat(sets,f.fin?[f.fin]:[]),
+    note:f.circ?`Circuit: do all ${sets.length} in order with the rest after each, then start again, ${R} rounds. Pick a weight where the last 2–3 reps are hard.`:d===3?'Cardio first, then the core work as straight sets.':'Straight sets: finish all sets of one exercise before the next.'};
+}
+const gymProg=()=>['five','trainer','plan'].includes(S.gym.program)?S.gym.program:'five';
+const gymTrainer=()=>gymProg()==='trainer';
+const gymRot=()=>gymProg()!=='plan'; // programs that repeat Day 1…N
+const gymRotLen=()=>gymProg()==='five'?5:6;
+const GPROG_N={five:'5-day plan',trainer:'Gym’s circuit',plan:'6-month guide'};
 const gymProgDay=(w,dow)=>gymTrainer()?trainerDay(w,dow):gymDay(w,dow);
 const GNUTR=w=>w===12?{k:2500,p:150,f:70,c:290}:w<=8?{k:2100,p:150,f:60,c:240}:w<=16?{k:2000,p:150,f:55,c:225}:{k:1900,p:145,f:55,c:205};
 // Plan's target weight by the end of each 4-week month
@@ -1861,20 +1886,20 @@ const GMOTIV=['Day one. You don’t need to be great to start, but you need to s
 /* ================= gym: data helpers ================= */
 function gymDefaults(){
   const d=new Date(),m=addDays(d,(8-d.getDay())%7); // next Monday, or today if it is Monday
-  return {start:ymd(m),program:'trainer',rounds:3,pos:{trainer:0,plan:0},startW:96,goalW:81,logs:[],body:[],cur:null,
+  return {start:ymd(m),program:'five',v2:1,rounds:3,pos:{five:0,trainer:0,plan:0},startW:96,goalW:81,logs:[],body:[],cur:null,
     rem:{workout:true,workoutTime:'08:30',weigh:true,weighTime:'07:00',waist:true,photo:true,weekly:true}};
 }
 function gymInit(){
-  const d=gymDefaults();S.gym=Object.assign(d,S.gym||{});S.gym.rem=Object.assign(d.rem,S.gym.rem||{});S.gym.pos=Object.assign({trainer:0,plan:0},S.gym.pos||{});
+  const d=gymDefaults(),old=S.gym&&!S.gym.v2;S.gym=Object.assign(d,S.gym||{});S.gym.rem=Object.assign(d.rem,S.gym.rem||{});S.gym.pos=Object.assign({five:0,trainer:0,plan:0},S.gym.pos||{});
+  if(old){S.gym.v2=1;S.gym.program='five'} // move existing data onto the 5-day plan once
   if(S.gym.cur&&S.gym.cur.key==null) S.gym.cur=null; // workouts started before they were ordered by number
 }
 // Calendar weeks since the start date; only weight targets and weigh-ins use dates
 const gymWeek=s=>Math.floor((dayNum(s)-dayNum(S.gym.start))/7)+1;
-const gymProg=()=>gymTrainer()?'trainer':'plan';
 const gymPos=()=>S.gym.pos[gymProg()]||0;
 // Workout number i in the program's order, with no dates: the trainer's Day 1–6 on repeat, or the guide's 24 weeks × 7 days
 function gymSeq(i){
-  if(gymTrainer()){const d=((i%6)+6)%6;return Object.assign({seq:i,label:'Day '+(d+1),week:Math.floor(i/6)+1},trainerDay(1,d+1))}
+  if(gymRot()){const L=gymRotLen(),d=((i%L)+L)%L;return Object.assign({seq:i,label:'Day '+(d+1),week:Math.floor(i/L)+1},gymProg()==='five'?fiveDay(d):trainerDay(1,d+1))}
   if(i<0||i>=168) return null;
   const w=Math.floor(i/7)+1,d=i%7;return Object.assign({seq:i,label:'Week '+w+' · Day '+(d+1),week:w},gymDay(w,[1,2,3,4,5,6,0][d]));
 }
@@ -1906,7 +1931,7 @@ function gymWeekAvg(w){const a=dayNum(S.gym.start)+(w-1)*7,v=S.gym.body.filter(b
 function viewGym(){
   gymInit();
   const tab=UI.gymTab||'today',nx=gymNext();
-  const sub=!nx?'6-month plan complete 🎉':gymTrainer()?`Next: ${nx.label} · Trainer’s circuit`:`${nx.label} · ${GPHASE_N[GPHASE(nx.week)]}`;
+  const sub=!nx?'6-month plan complete 🎉':gymRot()?`Next: ${nx.label} · ${GPROG_N[gymProg()]}`:`${nx.label} · ${GPHASE_N[GPHASE(nx.week)]}`;
   const body=tab==='plan'?gymPlanTab():tab==='progress'?gymProgressTab():gymTodayTab();
   return `<div class="page-head"><div><h1>Gym</h1><div class="sub">${sub}</div></div><div class="row"><div class="seg">${[['today','Today'],['plan','Plan'],['progress','Progress']].map(([k,l])=>`<button data-act="gym-tab" data-v="${k}" aria-pressed="${tab===k}">${l}</button>`).join('')}</div><button class="icon-btn" data-act="gym-settings" aria-label="Gym settings">${I.gear}</button></div></div>${body}`;
 }
@@ -1924,15 +1949,17 @@ function gymHomePanel(){
 function gymTodayTab(){
   const n=todayS(),nx=gymNext(),nu=GNUTR(Math.max(1,Math.min(24,gymWeek(n)))),today=S.gym.logs.filter(l=>l.date===n);
   let main=today.length?`<div class="gdone">${I.check}<div class="grow"><b>Done today</b>${today.map(l=>`<div class="row small" style="gap:6px"><span class="grow">${l.home?'🏠 ':''}${esc(l.title)}</span><button class="btn sm ghost" data-act="gym-log-del" data-id="${l.id}">Undo</button></div>`).join('')}</div></div>`:'';
-  main+=nx?gymSessCard(nx,{label:'Next workout · '+nx.label,extra:`<button class="btn" data-act="gym-skip">Skip</button>`})
+  const wkend=[0,6].includes(new Date().getDay());
+  if(wkend) main+=gymHomePanel().replace('🏠 At home or travelling?','🏠 Weekend at hometown?');
+  main+=nx?gymSessCard(nx,{label:(wkend?'Back at the gym · ':'Next workout · ')+nx.label,extra:`<button class="btn" data-act="gym-skip">Skip</button>`})
     :`<div class="panel"><div class="empty">You finished all 24 weeks. Keep going at about 1,900–2,000 calories until you reach 75–78 kg. Switch to your trainer’s circuit in settings, or start the guide again.</div><button class="btn" data-act="gym-setpos" data-v="0">Start the guide again</button></div>`;
-  main+=gymHomePanel();
+  if(!wkend) main+=gymHomePanel();
   // the round of workouts you're in: Day 1–6, or this week of the guide
   let strip='';
-  if(nx){const n0=gymTrainer()?nx.seq-nx.seq%6:nx.seq-nx.seq%7,cnt=gymTrainer()?6:7;
+  if(nx){const cnt=gymRot()?gymRotLen():7,n0=nx.seq-nx.seq%cnt;
     strip=[...Array(cnt)].map((_,i)=>{const s=gymSeq(n0+i),d=gymSeqDone(n0+i);return `<button class="gday${n0+i===nx.seq?' now':''}${d?' done':''}" data-act="gym-day" data-v="${n0+i}"><span>D${i+1}</span><b>${d?'✓':s.emoji}</b></button>`}).join('');}
   return `<div class="gmotiv"><span>💬</span><div>${esc(gymMotiv(n))}</div></div>
-  ${strip?`<div class="gweek" style="grid-template-columns:repeat(${gymTrainer()?6:7},1fr)">${strip}</div>`:''}
+  ${strip?`<div class="gweek" style="grid-template-columns:repeat(${gymRot()?gymRotLen():7},1fr)">${strip}</div>`:''}
   <div class="grid2"><div>${main}</div><div>
     ${nx?`<div class="panel"><h3>Tip</h3><p class="small muted" style="margin:6px 0 0">${esc(gymWeekTip(nx.week))}</p></div>`:''}
     <div class="panel"><div class="panel-head"><h3>Today’s food targets</h3></div><div class="gnut"><div><b class="num">${nu.k.toLocaleString('en-IN')}</b><span>kcal</span></div><div><b class="num">${nu.p} g</b><span>protein</span></div><div><b class="num">${nu.c} g</b><span>carbs</span></div><div><b class="num">${nu.f} g</b><span>fat</span></div></div><p class="tiny muted" style="margin:8px 0 0">Protein first: 4 meals of 30–40 g. Drink 3–4 litres of water.</p></div>
@@ -1947,8 +1974,8 @@ function gymBodySummary(){
 }
 function gymPlanTab(){
   const p=gymPos(),row=(s,i)=>`<button class="gitem" data-act="gym-day" data-v="${s.seq}"><span class="gnum">D${i+1}</span><span class="grow"><b>${s.emoji} ${esc(s.title)}</b><span class="tiny muted">${s.items.length} item${s.items.length>1?'s':''}${s.seq===p?' · next up':''}</span></span>${gymSeqDone(s.seq)?`<span class="pos">${I.check}</span>`:I.right}</button>`;
-  if(gymTrainer()){const n0=p-p%6;
-    return `<div class="panel"><h3>Your trainer’s circuit</h3><p class="small muted" style="margin:6px 0 4px">Do them in order whenever you can. Finishing one moves you to the next; after Day 6 it starts again at Day 1.</p>${[...Array(6)].map((_,i)=>row(gymSeq(n0+i),i)).join('')}</div>${gymHomePanel()}`;}
+  if(gymRot()){const L=gymRotLen(),n0=p-p%L;
+    return `<div class="panel"><h3>${gymProg()==='five'?'Your 5-day plan':'Your gym’s circuit'}</h3><p class="small muted" style="margin:6px 0 4px">Do them in order whenever you can. Finishing one moves you to the next; after Day ${L} it starts again at Day 1.${gymProg()==='five'?' Built from your gym’s circuits, plus a legs day, a cardio day, core work and a cardio finisher.':''}</p>${[...Array(L)].map((_,i)=>row(gymSeq(n0+i),i)).join('')}</div>${gymHomePanel()}`;}
   let html='';const cw=Math.floor(p/7)+1;
   for(let w=1;w<=24;w++){
     if(w===1||w===7||w===13) html+=`<h3 class="gphase">${w===1?'Weeks 1–6':w===7?'Weeks 7–12':'Weeks 13–24'} · ${GPHASE_N[GPHASE(w)]}</h3>`;
@@ -2024,9 +2051,9 @@ function gymSettingsRead(){const g=S.gym,v=id=>{const e=$('#'+id);return e?e.val
 function gymSettingsSheet(){
   const g=S.gym,r=g.rem,tg=(k,l,d,time)=>`<div class="row" style="padding:8px 0;align-items:flex-start"><div class="grow"><div style="font-weight:600">${l}</div><div class="tiny muted">${d}</div>${time&&r[k]?`<input class="in" type="time" id="gs-${time}" value="${r[time]}" style="margin-top:6px;max-width:140px">`:''}</div><button class="btn sm ${r[k]?'primary':''}" data-act="gym-rem" data-v="${k}">${r[k]?'On':'Off'}</button></div>`;
   openModal(sheetHead('Gym settings')+`
-    <label class="f">Workout program</label><div class="seg" style="display:flex">${[['trainer','Trainer’s circuit'],['plan','6-month guide']].map(([k,l])=>`<button style="flex:1" data-act="gym-prog" data-v="${k}" aria-pressed="${(g.program||'trainer')===k}">${l}</button>`).join('')}</div>
-    <div class="tiny muted" style="margin-top:6px">${gymTrainer()?'Day 1–6 from your trainer’s sheet, in order, whenever you can train.':'The 24-week plan from the fat loss guide, in order: full body, then upper/lower, then running.'} Each program remembers where you are.</div>
-    ${gymTrainer()?`<label class="f" for="gs-rounds">Rounds per circuit</label><input class="in num" id="gs-rounds" type="number" min="1" max="6" value="${g.rounds||3}" style="max-width:120px">`:''}
+    <label class="f">Workout program</label><div class="seg" style="display:flex">${[['five','5-day plan'],['trainer','Gym’s circuit'],['plan','6-month guide']].map(([k,l])=>`<button style="flex:1;padding:5px 4px" data-act="gym-prog" data-v="${k}" aria-pressed="${gymProg()===k}">${l}</button>`).join('')}</div>
+    <div class="tiny muted" style="margin-top:6px">${gymProg()==='five'?'Five gym days built from your gym’s circuits plus legs, cardio and core. Weekends: use the home workouts.':gymTrainer()?'Day 1–6 exactly as on your gym’s sheet, in order, whenever you can train.':'The 24-week plan from the fat loss guide, in order: full body, then upper/lower, then running.'} Each program remembers where you are.</div>
+    ${gymRot()?`<label class="f" for="gs-rounds">Rounds per circuit</label><input class="in num" id="gs-rounds" type="number" min="1" max="6" value="${g.rounds||3}" style="max-width:120px">`:''}
     <label class="f" for="gs-start">Weight plan start date</label><input class="in" type="date" id="gs-start" value="${g.start}">
     <div class="tiny muted" style="margin-top:4px">Only used for your weight targets and weigh-in reminders, not for workouts.</div>
     <div class="frow"><div><label class="f" for="gs-sw">Starting weight (kg)</label><input class="in num" id="gs-sw" type="number" step="0.1" value="${g.startW}"></div><div><label class="f" for="gs-gw">Goal weight (kg)</label><input class="in num" id="gs-gw" type="number" step="0.1" value="${g.goalW}"></div></div>
