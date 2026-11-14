@@ -10,6 +10,7 @@ import android.os.Build;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.provider.Settings;
+import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 
 import org.json.JSONObject;
@@ -205,6 +206,15 @@ public class Bridge {
     @JavascriptInterface
     public void setAccent(String hex) {
         Theme.setAccent(activity.getApplicationContext(), hex);
+    }
+
+    /** Keeps the screen on during a workout so the rest timer stays visible. */
+    @JavascriptInterface
+    public void keepAwake(boolean on) {
+        activity.runOnUiThread(() -> {
+            if (on) activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            else activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        });
     }
 
     @JavascriptInterface
