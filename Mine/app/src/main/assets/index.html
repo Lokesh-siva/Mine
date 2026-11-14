@@ -34,6 +34,9 @@ a{color:var(--accent)}
 main{max-width:980px;margin:0 auto;padding:18px 16px 110px}
 .tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;justify-content:space-around;background:var(--surface);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
 .tabbar a,.rail a{display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none;color:var(--muted);font-size:11.5px;font-weight:600;padding:4px 8px;border-radius:10px;min-width:56px}
+/* tabs share the width equally so any number of modules fits the screen */
+.tabbar{gap:2px}.tabbar a{flex:1 1 0;min-width:0;padding:4px 2px;font-size:clamp(9.5px,2.7vw,11.5px)}
+.tabbar a span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tabbar a svg,.rail a svg{width:22px;height:22px}
 .tabbar a[aria-current="page"],.rail a[aria-current="page"]{color:var(--accent)}
 @media (min-width:900px){
@@ -138,6 +141,7 @@ button.cbar{cursor:pointer}
 .gwatch{display:flex;align-items:center;gap:12px;background:var(--soft);color:var(--ink);border-radius:14px;padding:12px 14px;text-decoration:none;margin:10px 0}
 .gwatch>svg:first-child{width:22px;height:22px;color:var(--accent);flex:none}.gwatch>svg:last-child{width:16px;height:16px;color:var(--muted);margin-left:auto;flex:none}
 .gwatch b{display:block}.gwatch .tiny{color:var(--muted)}.gwatch.big{padding:16px}
+.gdone{display:flex;gap:10px;align-items:center;background:var(--soft);border-radius:14px;padding:10px 14px;margin-bottom:14px}.gdone>svg{width:20px;height:20px;color:var(--accent);flex:none}
 .gmotiv{display:flex;gap:10px;align-items:flex-start;background:var(--soft);border-radius:14px;padding:12px 14px;margin-bottom:14px;font-weight:600;line-height:1.4}
 .gmotiv span{font-size:1.2rem;line-height:1.1}
 .gweek{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:14px}
@@ -366,8 +370,8 @@ body.modal-open{overflow:hidden}
 .native input,.native textarea{user-select:text;-webkit-user-select:text}
 .native ::-webkit-scrollbar{display:none}
 .native .tabbar{padding:8px 4px calc(8px + env(safe-area-inset-bottom,0px));box-shadow:0 -6px 20px rgba(0,0,0,.35)}
-.native .tabbar a{font-size:12px;gap:4px;min-width:62px;padding:6px 10px;border-radius:14px}
-.native .tabbar a svg{width:24px;height:24px}
+.native .tabbar a{font-size:clamp(9.5px,2.8vw,12px);gap:3px;min-width:0;padding:6px 2px;border-radius:14px}
+.native .tabbar a svg{width:clamp(19px,5.6vw,24px);height:clamp(19px,5.6vw,24px)}
 .native .tabbar a[aria-current="page"]{background:var(--soft)}
 .native main{padding-bottom:120px}
 .native .fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))}
@@ -1545,13 +1549,15 @@ function upcomingAlarms(fromMs,toMs){
   if(modOn('habits'))S.habits.filter(h=>!h.archived).forEach(h=>days.forEach(d=>{const s=ymd(d);if(!scheduled(h,d)&&h.freq!=='weekly')return;if(doneOn(h,s))return;if(h.freq==='weekly'&&weekCount(h,startOfWeek(d))>=(h.perWeek||3))return;(h.rem||[]).forEach(r=>{const [hh,mm]=r.split(':').map(Number);const at=new Date(d);at.setHours(hh,mm,0,0);push('h:'+h.id+'@'+s+'@'+r,'habit',h.id,h.icon+' '+h.name,h.goal>1?'Goal: '+h.goal+(h.unit?' '+h.unit:''):'Time for your habit',at,(h.remSet||h.created||0)-60000)})}));
   if(modOn('money'))S.accounts.filter(a=>a.type==='card'&&a.dueDay&&a.remind!==false).forEach(a=>{const due=nextDue(a);if(!due)return;[2,0].forEach(b=>{const at=addDays(due,-b);at.setHours(10,0,0,0);push('c:'+a.id+'@'+ymd(due)+'@'+b,'card',a.id,a.name+' bill '+(b?'due in 2 days':'due today'),'Pay your card bill',at,(a.remSet||0)-60000)})});
   if(modOn('gym')&&S.gym){const r=S.gym.rem,at=(d,t,plus)=>{const [hh,mm]=(t||'07:00').split(':').map(Number);const x=new Date(d);x.setHours(hh,mm+(plus||0),0,0);return x};
-    days.forEach(d=>{const s=ymd(d),w=gymWeek(s);if(w<1||w>24)return;const x=gymSess(s);
-      if(r.workout&&!gymLog(s))push('g:w@'+s,'gym','',x.emoji+' '+x.title,'Week '+w+' · '+gymMotiv(s),at(d,r.workoutTime));
+    const nx=gymNext();
+    days.forEach(d=>{const s=ymd(d),w=gymWeek(s);
+      if(r.workout&&nx&&!S.gym.logs.some(l=>l.date===s))push('g:w@'+s,'gym','',nx.emoji+' '+nx.title,'Next workout · '+nx.label+'. Away from the gym? Do a home workout.',at(d,r.workoutTime));
+      if(w<1||w>24)return;
       if(r.weigh&&[1,3,5].includes(d.getDay()))push('g:kg@'+s,'gym','','⚖️ Weigh-in','After the toilet, before food. Log it in Gym.',at(d,r.weighTime));
       if(r.waist&&d.getDate()===1)push('g:waist@'+s,'gym','','📏 Measure your waist','At the navel, then log it in Gym',at(d,r.weighTime,2));
       if(r.photo&&d.getDay()===1&&w%2===1)push('g:photo@'+s,'gym','','📸 Progress photos','Front and side, same mirror and light',at(d,r.weighTime,4));
       if(r.weekly&&d.getDay()===0){const a=dayNum(S.gym.start)+(w-1)*7,dn=S.gym.logs.filter(l=>dayNum(l.date)>=a&&dayNum(l.date)<a+7).length,avg=gymWeekAvg(w);
-        push('g:week@'+s,'gym','','📊 Week '+w+' check-in',dn+'/7 workouts done'+(avg?' · average '+avg+' kg (target '+gymTargetAt(w)+' kg)':' · log your weight this week'),at(d,'19:00'))}
+        push('g:week@'+s,'gym','','📊 Week '+w+' check-in',dn+' workout'+(dn===1?'':'s')+' this week'+(avg?' · average '+avg+' kg (target '+gymTargetAt(w)+' kg)':' · log your weight this week'),at(d,'19:00'))}
     })}
   Object.entries(A.snoozes).forEach(([k,v])=>push(k,v.kind,v.id,v.title,'Snoozed reminder',new Date(v.at)));
   return out.sort((a,b)=>a.at-b.at);
@@ -1766,16 +1772,34 @@ const GMOTIV=['Day one. You don’t need to be great to start, but you need to s
 /* ================= gym: data helpers ================= */
 function gymDefaults(){
   const d=new Date(),m=addDays(d,(8-d.getDay())%7); // next Monday, or today if it is Monday
-  return {start:ymd(m),program:'trainer',rounds:3,startW:96,goalW:81,logs:[],body:[],cur:null,
+  return {start:ymd(m),program:'trainer',rounds:3,pos:{trainer:0,plan:0},startW:96,goalW:81,logs:[],body:[],cur:null,
     rem:{workout:true,workoutTime:'08:30',weigh:true,weighTime:'07:00',waist:true,photo:true,weekly:true}};
 }
-function gymInit(){const d=gymDefaults();S.gym=Object.assign(d,S.gym||{});S.gym.rem=Object.assign(d.rem,S.gym.rem||{})}
+function gymInit(){
+  const d=gymDefaults();S.gym=Object.assign(d,S.gym||{});S.gym.rem=Object.assign(d.rem,S.gym.rem||{});S.gym.pos=Object.assign({trainer:0,plan:0},S.gym.pos||{});
+  if(S.gym.cur&&S.gym.cur.key==null) S.gym.cur=null; // workouts started before they were ordered by number
+}
+// Calendar weeks since the start date; only weight targets and weigh-ins use dates
 const gymWeek=s=>Math.floor((dayNum(s)-dayNum(S.gym.start))/7)+1;
-function gymSess(s){const w=gymWeek(s);if(w<1||w>24)return null;const d=gymProgDay(w,parseYmd(s).getDay());return Object.assign({date:s,week:w,dow:parseYmd(s).getDay()},d)}
-const gymLog=s=>S.gym.logs.find(l=>l.date===s);
+const gymProg=()=>gymTrainer()?'trainer':'plan';
+const gymPos=()=>S.gym.pos[gymProg()]||0;
+// Workout number i in the program's order, with no dates: the trainer's Day 1–6 on repeat, or the guide's 24 weeks × 7 days
+function gymSeq(i){
+  if(gymTrainer()){const d=((i%6)+6)%6;return Object.assign({seq:i,label:'Day '+(d+1),week:Math.floor(i/6)+1},trainerDay(1,d+1))}
+  if(i<0||i>=168) return null;
+  const w=Math.floor(i/7)+1,d=i%7;return Object.assign({seq:i,label:'Week '+w+' · Day '+(d+1),week:w},gymDay(w,[1,2,3,4,5,6,0][d]));
+}
+const gymNext=()=>gymSeq(gymPos());
+const gymSeqDone=i=>S.gym.logs.some(l=>l.seq===i&&l.prog===gymProg());
+const gymKey=x=>x.home?'h:'+x.home:String(x.seq);
+// For days at home or travelling: mostly running and cardio, a little bodyweight work. The gym workout stays next in line.
+function gymHome(k){
+  if(k==='cardio') return {home:'cardio',kind:'home',label:'Home / travel',title:'Cardio only',emoji:'🏃',items:[{ex:'walk',mins:5,note:'5 min easy walk to warm up'},{ex:'jog',mins:30,note:'30 min run or jog; walk breaks are fine. No space to run? Brisk walk or cycle.'},{ex:'walk',mins:10,note:'10 min easy walk to cool down'}],note:'Your gym workout stays next in line for when you’re back.'};
+  return {home:'run',kind:'home',label:'Home / travel',title:'Run + light exercise',emoji:'🏠',circuit:2,items:[{ex:'walk',mins:5,note:'5 min brisk walk to warm up'},{ex:'jog',mins:20,note:'20 min easy run; walk when you need to'},
+    {ex:'bw-squat',sets:2,reps:'15',rest:0},{ex:'push-up',sets:2,reps:'10',rest:0},{ex:'glute-bridge',sets:2,reps:'15',rest:0},{ex:'plank',sets:2,reps:'30 sec',rest:0},{ex:'mountain-climber',sets:2,reps:'20',rest:0},
+    {ex:'walk',mins:5,note:'5 min easy walk to cool down'}],note:'Mostly cardio with a little bodyweight work, no equipment. Your gym workout stays next in line for when you’re back.'};
+}
 function gymMotiv(s){const n=dayNum(s||todayS())-dayNum(S.gym.start);return GMOTIV[((n%GMOTIV.length)+GMOTIV.length)%GMOTIV.length]}
-// First plan day from s onward that isn't done yet
-function gymNextFrom(s){for(let i=0;i<200;i++){const d=ymd(addDays(parseYmd(s),i)),x=gymSess(d);if(x&&!gymLog(d))return x;if(gymWeek(d)>24)return null}return null}
 function gymItemLine(it,circ){
   const t=it.type||exType(it.ex);
   if(it.rounds) return it.note||`${it.rounds} × ${it.work}s hard / ${it.rest}s easy`;
@@ -1792,32 +1816,36 @@ function gymWeekAvg(w){const a=dayNum(S.gym.start)+(w-1)*7,v=S.gym.body.filter(b
 /* ================= gym: screens ================= */
 function viewGym(){
   gymInit();
-  const n=todayS(),w=gymWeek(n),tab=UI.gymTab||'today';
-  const sub=w<1?'Plan starts '+fmtDay(S.gym.start):w>24?'6-month plan complete 🎉':`Week ${w} of 24 · ${gymTrainer()?'Trainer’s circuit':GPHASE_N[GPHASE(w)]}`;
+  const tab=UI.gymTab||'today',nx=gymNext();
+  const sub=!nx?'6-month plan complete 🎉':gymTrainer()?`Next: ${nx.label} · Trainer’s circuit`:`${nx.label} · ${GPHASE_N[GPHASE(nx.week)]}`;
   const body=tab==='plan'?gymPlanTab():tab==='progress'?gymProgressTab():gymTodayTab();
   return `<div class="page-head"><div><h1>Gym</h1><div class="sub">${sub}</div></div><div class="row"><div class="seg">${[['today','Today'],['plan','Plan'],['progress','Progress']].map(([k,l])=>`<button data-act="gym-tab" data-v="${k}" aria-pressed="${tab===k}">${l}</button>`).join('')}</div><button class="icon-btn" data-act="gym-settings" aria-label="Gym settings">${I.gear}</button></div></div>${body}`;
 }
 function gymSessCard(x,opts={}){
-  const lg=gymLog(x.date),cur=S.gym.cur&&S.gym.cur.date===x.date;
-  return `<div class="panel gsess"><div class="panel-head"><div><div class="tiny muted" style="font-weight:700;letter-spacing:.06em;text-transform:uppercase">${opts.label||(x.date===todayS()?'Today':fmtDay(x.date))} · Week ${x.week}</div><h3 style="font-size:1.3rem;margin-top:2px">${x.emoji} ${esc(x.title)}</h3></div>${lg?`<span class="chip on">${I.check} Done</span>`:''}</div>
+  const key=gymKey(x),done=!x.home&&gymSeqDone(x.seq),cur=S.gym.cur&&S.gym.cur.key===key;
+  return `<div class="panel gsess"><div class="panel-head"><div><div class="tiny muted" style="font-weight:700;letter-spacing:.06em;text-transform:uppercase">${esc(opts.label||x.label)}</div><h3 style="font-size:1.3rem;margin-top:2px">${x.emoji} ${esc(x.title)}</h3></div>${done?`<span class="chip on">${I.check} Done</span>`:''}</div>
     ${x.note?`<p class="small muted" style="margin:0 0 8px">${esc(x.note)}</p>`:''}
     ${x.items.map((it,i)=>`${x.circuit&&i===x.items.findIndex(z=>z.sets)?`<div class="tiny" style="font-weight:700;margin:10px 0 2px">Then ${x.circuit} rounds of:</div>`:''}<button class="gitem" data-act="gym-ex" data-v="${it.ex}"><span class="gnum">${i+1}</span><span class="grow" style="min-width:0"><b>${esc(EX[it.ex].n)}</b><span class="tiny muted">${esc(gymItemLine(it,x.circuit&&it.sets))}</span></span>${I.right}</button>`).join('')}
-    <div class="row" style="margin-top:12px;gap:8px">${lg?`<span class="small muted grow">${Math.round((lg.dur||0)/60)} min · ${(lg.items||[]).reduce((a,i)=>a+(i.sets||[]).length,0)} sets logged</span><button class="btn sm" data-act="gym-start" data-v="${x.date}">Do it again</button>`:`<button class="btn primary grow gstart" data-act="gym-start" data-v="${x.date}">${I.play} ${cur?'Resume workout':'Start workout'}</button>`}</div></div>`;
+    <div class="row wrap" style="margin-top:12px;gap:8px"><button class="btn ${done?'':'primary'} grow gstart" data-act="gym-start" data-v="${key}">${I.play} ${cur?'Resume workout':done?'Do it again':'Start workout'}</button>${opts.extra||''}</div></div>`;
+}
+function gymHomePanel(){
+  return `<div class="panel"><h3>🏠 At home or travelling?</h3><p class="small muted" style="margin:6px 0 10px">Do this instead of today’s gym workout: mostly running and cardio, with a little bodyweight work. Your gym workout stays next in line.</p>
+    <div class="row wrap" style="gap:8px"><button class="btn grow" data-act="gym-home" data-v="run">🏃 Run + light exercise</button><button class="btn grow" data-act="gym-home" data-v="cardio">🚶 Cardio only</button></div></div>`;
 }
 function gymTodayTab(){
-  const n=todayS(),w=gymWeek(n),x=gymSess(n),nu=GNUTR(Math.max(1,Math.min(24,w)));
-  let main='';
-  if(w<1){const f=gymSess(S.gym.start);main=`<div class="banner">${I.cal}<div class="grow"><b>Your plan starts ${fmtDay(S.gym.start)}</b><div class="small">Here’s your first workout. You can start it early, or change the start date in settings.</div></div></div>`+gymSessCard(f,{label:'First workout'});if(gymLog(f.date)){const nx=gymNextFrom(ymd(addDays(parseYmd(f.date),1)));if(nx)main+=gymSessCard(nx,{label:'Next · '+fmtDay(nx.date)})}}
-  else if(!x) main=`<div class="panel"><div class="empty">You finished all 24 weeks. Keep going at about 1,900–2,000 calories until you reach 75–78 kg, and set a new start date to run the plan again.</div></div>`;
-  else {
-    main=gymSessCard(x);
-    if(gymLog(n)){const nx=gymNextFrom(ymd(addDays(new Date(),1)));if(nx)main+=gymSessCard(nx,{label:'Next · '+fmtDay(nx.date)})}
-  }
-  const wk=w>=1&&w<=24?[...Array(7)].map((_,i)=>{const d=ymd(addDays(parseYmd(S.gym.start),(w-1)*7+i)),s=gymSess(d);return `<button class="gday${d===n?' now':''}${gymLog(d)?' done':''}" data-act="gym-day" data-v="${d}"><span>${WD[parseYmd(d).getDay()][0]}</span><b>${gymLog(d)?'✓':s.emoji}</b></button>`}).join(''):'';
+  const n=todayS(),nx=gymNext(),nu=GNUTR(Math.max(1,Math.min(24,gymWeek(n)))),today=S.gym.logs.filter(l=>l.date===n);
+  let main=today.length?`<div class="gdone">${I.check}<div class="grow"><b>Done today</b><div class="small">${today.map(l=>esc(l.title)).join(', ')}</div></div></div>`:'';
+  main+=nx?gymSessCard(nx,{label:'Next workout · '+nx.label,extra:`<button class="btn" data-act="gym-skip">Skip</button>`})
+    :`<div class="panel"><div class="empty">You finished all 24 weeks. Keep going at about 1,900–2,000 calories until you reach 75–78 kg. Switch to your trainer’s circuit in settings, or start the guide again.</div><button class="btn" data-act="gym-setpos" data-v="0">Start the guide again</button></div>`;
+  main+=gymHomePanel();
+  // the round of workouts you're in: Day 1–6, or this week of the guide
+  let strip='';
+  if(nx){const n0=gymTrainer()?nx.seq-nx.seq%6:nx.seq-nx.seq%7,cnt=gymTrainer()?6:7;
+    strip=[...Array(cnt)].map((_,i)=>{const s=gymSeq(n0+i),d=gymSeqDone(n0+i);return `<button class="gday${n0+i===nx.seq?' now':''}${d?' done':''}" data-act="gym-day" data-v="${n0+i}"><span>D${i+1}</span><b>${d?'✓':s.emoji}</b></button>`}).join('');}
   return `<div class="gmotiv"><span>💬</span><div>${esc(gymMotiv(n))}</div></div>
-  ${wk?`<div class="gweek">${wk}</div>`:''}
+  ${strip?`<div class="gweek" style="grid-template-columns:repeat(${gymTrainer()?6:7},1fr)">${strip}</div>`:''}
   <div class="grid2"><div>${main}</div><div>
-    ${w>=1&&w<=24?`<div class="panel"><h3>This week</h3><p class="small muted" style="margin:6px 0 0">${esc(gymWeekTip(w))}</p></div>`:''}
+    ${nx?`<div class="panel"><h3>Tip</h3><p class="small muted" style="margin:6px 0 0">${esc(gymWeekTip(nx.week))}</p></div>`:''}
     <div class="panel"><div class="panel-head"><h3>Today’s food targets</h3></div><div class="gnut"><div><b class="num">${nu.k.toLocaleString('en-IN')}</b><span>kcal</span></div><div><b class="num">${nu.p} g</b><span>protein</span></div><div><b class="num">${nu.c} g</b><span>carbs</span></div><div><b class="num">${nu.f} g</b><span>fat</span></div></div><p class="tiny muted" style="margin:8px 0 0">Protein first: 4 meals of 30–40 g. Drink 3–4 litres of water.</p></div>
     <div class="panel"><div class="panel-head"><h3>Body</h3><button class="btn sm" data-act="gym-weigh">${I.plus} Log weight</button></div>${gymBodySummary()}</div>
   </div></div>`;
@@ -1829,13 +1857,15 @@ function gymBodySummary(){
   return `<div class="gnut"><div><b class="num">${last.w} kg</b><span>${fmtDay(last.date)}</span></div><div><b class="num ${lost>0?'pos':''}">${lost>0?'−':'+'}${Math.abs(lost)} kg</b><span>since start</span></div><div><b class="num">${tg} kg</b><span>target now</span></div></div>`;
 }
 function gymPlanTab(){
-  const n=todayS(),cw=gymWeek(n);let html='';
+  const p=gymPos(),row=(s,i)=>`<button class="gitem" data-act="gym-day" data-v="${s.seq}"><span class="gnum">D${i+1}</span><span class="grow"><b>${s.emoji} ${esc(s.title)}</b><span class="tiny muted">${s.items.length} item${s.items.length>1?'s':''}${s.seq===p?' · next up':''}</span></span>${gymSeqDone(s.seq)?`<span class="pos">${I.check}</span>`:I.right}</button>`;
+  if(gymTrainer()){const n0=p-p%6;
+    return `<div class="panel"><h3>Your trainer’s circuit</h3><p class="small muted" style="margin:6px 0 4px">Do them in order whenever you can. Finishing one moves you to the next; after Day 6 it starts again at Day 1.</p>${[...Array(6)].map((_,i)=>row(gymSeq(n0+i),i)).join('')}</div>${gymHomePanel()}`;}
+  let html='';const cw=Math.floor(p/7)+1;
   for(let w=1;w<=24;w++){
-    if(gymTrainer()?w===1:(w===1||w===7||w===13)) html+=gymTrainer()?`<h3 class="gphase">Trainer’s circuit · Day 1–6 on Mon–Sat</h3>`:`<h3 class="gphase">${['','','','','','','','Weeks 7–12','','','','','','Weeks 13–24'][w]||'Weeks 1–6'} · ${GPHASE_N[GPHASE(w)]}</h3>`;
-    const days=[...Array(7)].map((_,i)=>{const d=ymd(addDays(parseYmd(S.gym.start),(w-1)*7+i));return {d,s:gymSess(d)}});
-    const done=days.filter(x=>gymLog(x.d)).length,open=UI.gymWeekOpen===w||(UI.gymWeekOpen==null&&w===Math.max(1,cw));
-    html+=`<div class="panel gwk${w===cw?' cur':''}"><button class="gwk-h" data-act="gym-week" data-v="${w}"><b>Week ${w}${!gymTrainer()&&gymDeload(w)?' · deload':''}</b><span class="tiny muted">${fmtDay(days[0].d)} – ${fmtDay(days[6].d)}</span><span class="grow"></span><span class="tiny ${done?'pos':'muted'}">${done}/7</span></button>
-      ${open?`<div style="margin-top:8px">${days.map(({d,s})=>`<button class="gitem" data-act="gym-day" data-v="${d}"><span class="gnum">${WD[s.dow]}</span><span class="grow"><b>${s.emoji} ${esc(s.title)}</b><span class="tiny muted">${s.items.length} item${s.items.length>1?'s':''}${d===n?' · today':''}</span></span>${gymLog(d)?`<span class="pos">${I.check}</span>`:I.right}</button>`).join('')}<p class="tiny muted" style="margin:8px 2px 0">${esc(gymWeekTip(w))}</p></div>`:''}</div>`;
+    if(w===1||w===7||w===13) html+=`<h3 class="gphase">${w===1?'Weeks 1–6':w===7?'Weeks 7–12':'Weeks 13–24'} · ${GPHASE_N[GPHASE(w)]}</h3>`;
+    const ss=[...Array(7)].map((_,i)=>gymSeq((w-1)*7+i)),done=ss.filter(s=>gymSeqDone(s.seq)).length,open=UI.gymWeekOpen===w||(UI.gymWeekOpen==null&&w===cw);
+    html+=`<div class="panel gwk${w===cw?' cur':''}"><button class="gwk-h" data-act="gym-week" data-v="${w}"><b>Week ${w}${gymDeload(w)?' · deload':''}</b><span class="grow"></span><span class="tiny ${done?'pos':'muted'}">${done}/7</span></button>
+      ${open?`<div style="margin-top:8px">${ss.map(row).join('')}<p class="tiny muted" style="margin:8px 2px 0">${esc(gymWeekTip(w))}</p></div>`:''}</div>`;
   }
   return html;
 }
@@ -1858,23 +1888,23 @@ function gymWeightChart(){
 }
 function gymProgressTab(){
   const n=todayS(),w=Math.max(1,Math.min(24,gymWeek(n))),logs=S.gym.logs;
-  const wd=[...Array(7)].filter((_,i)=>gymLog(ymd(addDays(parseYmd(S.gym.start),(w-1)*7+i)))).length;
+  const wd=logs.filter(l=>dayNum(n)-dayNum(l.date)<7).length;
   const avgs=[w-3,w-2,w-1,w].filter(x=>x>=1).map(x=>({w:x,a:gymWeekAvg(x),t:gymTargetAt(x)}));
   const flat=avgs.length>=3&&avgs.slice(-3).every(x=>x.a!=null)&&Math.max(...avgs.slice(-3).map(x=>x.a))-Math.min(...avgs.slice(-3).map(x=>x.a))<.3;
   const waist=S.gym.body.filter(x=>x.waist).sort((a,c)=>a.date<c.date?-1:1);
   const exs=[...new Set(logs.flatMap(l=>(l.items||[]).filter(i=>exType(i.ex)==='reps'||exType(i.ex)==='carry').map(i=>i.ex)))].filter(k=>gymBest(k));
-  return `<div class="ledger"><div><div class="k">Workouts done</div><div class="v num">${logs.length}</div></div><div><div class="k">This week</div><div class="v num">${wd}/7</div></div><div><div class="k">Latest weight</div><div class="v num">${(S.gym.body.filter(x=>x.w).sort((a,c)=>a.date<c.date?1:-1)[0]||{}).w||'—'}${S.gym.body.some(x=>x.w)?' kg':''}</div></div><div><div class="k">Goal</div><div class="v num">${S.gym.goalW} kg</div></div></div>
+  return `<div class="ledger"><div><div class="k">Workouts done</div><div class="v num">${logs.length}</div></div><div><div class="k">Last 7 days</div><div class="v num">${wd}</div></div><div><div class="k">Latest weight</div><div class="v num">${(S.gym.body.filter(x=>x.w).sort((a,c)=>a.date<c.date?1:-1)[0]||{}).w||'—'}${S.gym.body.some(x=>x.w)?' kg':''}</div></div><div><div class="k">Goal</div><div class="v num">${S.gym.goalW} kg</div></div></div>
   <div class="grid2"><div>
     <div class="panel"><div class="panel-head"><h3>Weight</h3><button class="btn sm" data-act="gym-weigh">${I.plus} Log</button></div>${gymWeightChart()}
       ${avgs.some(x=>x.a!=null)?`<div style="margin-top:10px">${avgs.map(x=>`<div class="row small" style="padding:3px 0"><span class="grow">Week ${x.w} average</span><b class="num">${x.a!=null?x.a+' kg':'—'}</b><span class="tiny muted" style="min-width:90px;text-align:right">target ${x.t} kg</span></div>`).join('')}</div>`:''}
       ${flat?`<div class="banner" style="margin:10px 0 0">⚠️<div class="grow small"><b>Weight has been flat for 3 weeks.</b> Check you’re hitting your calories (weekends are the usual leak) and add 2,000 steps a day. Still stuck after 2 more weeks? Drop 150 calories, but stay at 1,800 or above.</div></div>`:''}
       <p class="tiny muted" style="margin:10px 0 0">Judge progress by the 2-week average and your waist, never one weigh-in.</p></div>
     <div class="panel"><div class="panel-head"><h3>Waist</h3><button class="btn sm" data-act="gym-weigh" data-v="waist">${I.plus} Log</button></div>
-      ${waist.length?waist.slice(-6).reverse().map((x,i,a)=>`<div class="row small" style="padding:4px 0"><span class="grow">${fmtDay(x.date)}</span><b class="num">${x.waist} cm</b></div>`).join('')+(waist.length>1?`<div class="tiny pos" style="margin-top:4px">${r2(waist[0].waist-waist[waist.length-1].waist)} cm down since ${fmtDay(waist[0].date)}</div>`:''):'<div class="empty" style="padding:10px">Measure at the navel on the 1st of every month. Losing 1–2 cm a month means fat is coming off, even if the scale is slow.</div>'}</div>
+      ${waist.length?waist.slice(-6).reverse().map(x=>`<div class="row small" style="padding:4px 0"><span class="grow">${fmtDay(x.date)}</span><b class="num">${x.waist} cm</b></div>`).join('')+(waist.length>1?`<div class="tiny pos" style="margin-top:4px">${r2(waist[0].waist-waist[waist.length-1].waist)} cm down since ${fmtDay(waist[0].date)}</div>`:''):'<div class="empty" style="padding:10px">Measure at the navel on the 1st of every month. Losing 1–2 cm a month means fat is coming off, even if the scale is slow.</div>'}</div>
     <div class="panel"><h3>Progress photos</h3><p class="small muted" style="margin:6px 0 0">Every 2 weeks: same mirror, same light, front and side. Mine reminds you on Monday mornings; the photos stay in your phone’s gallery. Compare them with week 1.</p></div>
   </div><div>
     <div class="panel flush"><div class="panel-head"><h3>Strength</h3><span class="tiny muted">Best set</span></div>${exs.length?exs.map(k=>{const b=gymBest(k),l=gymLast(k),ls=l.sets.reduce((a,s)=>+s.w>+a.w?s:a,l.sets[0]);return `<button class="txrow" data-act="gym-ex" data-v="${k}" style="width:100%;text-align:left;border:0;background:none"><div class="grow"><b>${esc(EX[k].n)}</b><div class="tiny muted">Last ${fmtDay(l.date)}: ${ls.w||0} kg × ${ls.r||0}</div></div><div style="text-align:right"><b class="num">${b.w} kg × ${b.r}</b><div class="tiny muted">est. 1RM ${e1rm(b.w,b.r)} kg</div></div></button>`}).join(''):'<div class="empty">Finish a workout to see your lifts here. Strength going up while weight goes down means you’re keeping muscle.</div>'}</div>
-    <div class="panel"><h3>Recent workouts</h3>${logs.slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,8).map(l=>`<div class="row small" style="padding:5px 0"><span class="grow">${fmtDay(l.date)} · ${esc(l.title)}</span><span class="tiny muted">${Math.round((l.dur||0)/60)} min</span></div>`).join('')||'<div class="empty" style="padding:10px">No workouts yet.</div>'}</div>
+    <div class="panel"><h3>Recent workouts</h3>${logs.slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,8).map(l=>`<div class="row small" style="padding:5px 0"><span class="grow">${fmtDay(l.date)} · ${l.home?'🏠 ':''}${esc(l.title)}</span><span class="tiny muted">${Math.round((l.dur||0)/60)} min</span></div>`).join('')||'<div class="empty" style="padding:10px">No workouts yet.</div>'}</div>
   </div></div>`;
 }
 
@@ -1890,9 +1920,9 @@ function gymExSheet(k){
     <div class="sheet-foot"><button class="btn primary" data-act="close-modal">Close</button></div>`,{type:'gymex'});
 }
 const shortD=s=>{const d=parseYmd(s);return d.getDate()+'/'+(d.getMonth()+1)};
-function gymDaySheet(s){
-  const x=gymSess(s); if(!x) return;
-  openModal(sheetHead(fmtDay(s)+' · Week '+x.week)+gymSessCard(x,{label:WD[x.dow]}).replace('class="panel gsess"','class="gsess"')+`<div class="sheet-foot"><button class="btn" data-act="close-modal">Close</button></div>`,{type:'gymday'});
+function gymDaySheet(i){
+  const x=gymSeq(+i); if(!x) return;
+  openModal(sheetHead(x.label)+gymSessCard(x,{extra:x.seq!==gymPos()?`<button class="btn" data-act="gym-setpos" data-v="${x.seq}">Make this next</button>`:''}).replace('class="panel gsess"','class="gsess"')+`<div class="sheet-foot"><button class="btn" data-act="close-modal">Close</button></div>`,{type:'gymday'});
 }
 function gymWeighSheet(focus){
   const t=todayS(),cur=S.gym.body.find(b=>b.date===t)||{};
@@ -1906,12 +1936,13 @@ function gymSettingsSheet(){
   const g=S.gym,r=g.rem,tg=(k,l,d,time)=>`<div class="row" style="padding:8px 0;align-items:flex-start"><div class="grow"><div style="font-weight:600">${l}</div><div class="tiny muted">${d}</div>${time&&r[k]?`<input class="in" type="time" id="gs-${time}" value="${r[time]}" style="margin-top:6px;max-width:140px">`:''}</div><button class="btn sm ${r[k]?'primary':''}" data-act="gym-rem" data-v="${k}">${r[k]?'On':'Off'}</button></div>`;
   openModal(sheetHead('Gym settings')+`
     <label class="f">Workout program</label><div class="seg" style="display:flex">${[['trainer','Trainer’s circuit'],['plan','6-month guide']].map(([k,l])=>`<button style="flex:1" data-act="gym-prog" data-v="${k}" aria-pressed="${(g.program||'trainer')===k}">${l}</button>`).join('')}</div>
-    <div class="tiny muted" style="margin-top:6px">${gymTrainer()?'Day 1–6 from your trainer’s sheet on Monday–Saturday. Weight targets, food and reminders still follow the 6-month guide.':'The full 24-week plan from the fat loss guide: full body, then upper/lower, then running.'}</div>
+    <div class="tiny muted" style="margin-top:6px">${gymTrainer()?'Day 1–6 from your trainer’s sheet, in order, whenever you can train.':'The 24-week plan from the fat loss guide, in order: full body, then upper/lower, then running.'} Each program remembers where you are.</div>
     ${gymTrainer()?`<label class="f" for="gs-rounds">Rounds per circuit</label><input class="in num" id="gs-rounds" type="number" min="1" max="6" value="${g.rounds||3}" style="max-width:120px">`:''}
-    <label class="f" for="gs-start">Plan start date (week 1, day 1)</label><input class="in" type="date" id="gs-start" value="${g.start}">
+    <label class="f" for="gs-start">Weight plan start date</label><input class="in" type="date" id="gs-start" value="${g.start}">
+    <div class="tiny muted" style="margin-top:4px">Only used for your weight targets and weigh-in reminders, not for workouts.</div>
     <div class="frow"><div><label class="f" for="gs-sw">Starting weight (kg)</label><input class="in num" id="gs-sw" type="number" step="0.1" value="${g.startW}"></div><div><label class="f" for="gs-gw">Goal weight (kg)</label><input class="in num" id="gs-gw" type="number" step="0.1" value="${g.goalW}"></div></div>
     <h3 style="margin-top:16px">Reminders</h3>
-    ${tg('workout','Workout reminder','Every plan day you haven’t done yet','workoutTime')}
+    ${tg('workout','Workout reminder','Every day you haven’t trained yet, with your next workout','workoutTime')}
     ${tg('weigh','Weigh-in','Monday, Wednesday and Friday mornings','weighTime')}
     ${tg('waist','Waist measurement','1st of every month, with the weigh-in time')}
     ${tg('photo','Progress photos','Every 2 weeks on Monday, with the weigh-in time')}
@@ -1927,22 +1958,28 @@ function gymSteps(x){
   else x.items.forEach((it,i)=>{const n=it.sets||1;for(let s=0;s<n;s++)st.push({i,s})});
   return st;
 }
-function gymStart(s){
-  gymInit();const x=gymSess(s); if(!x) return;
-  if(!S.gym.cur||S.gym.cur.date!==s) S.gym.cur={date:s,started:Date.now(),at:0,restEnd:0,tm:null,items:x.items.map(it=>({ex:it.ex,sets:[...Array(it.sets||1)].map(()=>({w:'',r:'',done:false}))}))};
-  Store.mark('gym'); closeModal();
-  let el=$('#gymplay'); if(!el){el=document.createElement('div');el.id='gymplay';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');document.body.appendChild(el)}
-  el.classList.add('open');document.body.classList.add('modal-open');
-  try{window.MineNative.keepAwake(true)}catch(e){}
-  clearInterval(GP.tick);GP.tick=setInterval(gpTick,250);
-  gpRender();
+const gymByKey=k=>String(k).startsWith('h:')?gymHome(String(k).slice(2)):gymSeq(+k);
+// key: a workout number, or h:run / h:cardio for the home workouts
+function gymStart(key){
+  gymInit();key=String(key);const x=gymByKey(key); if(!x) return;
+  const go=()=>{
+    if(!S.gym.cur||S.gym.cur.key!==key) S.gym.cur={key,seq:x.home?null:x.seq,home:x.home||null,started:Date.now(),at:0,restEnd:0,tm:null,items:x.items.map(it=>({ex:it.ex,sets:[...Array(it.sets||1)].map(()=>({w:'',r:'',done:false}))}))};
+    Store.mark('gym'); closeModal();
+    let el=$('#gymplay'); if(!el){el=document.createElement('div');el.id='gymplay';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');document.body.appendChild(el)}
+    el.classList.add('open');document.body.classList.add('modal-open');
+    try{window.MineNative.keepAwake(true)}catch(e){}
+    clearInterval(GP.tick);GP.tick=setInterval(gpTick,250);
+    gpRender();
+  };
+  const c=S.gym.cur;
+  if(c&&c.key!==key&&!c.finished&&c.items.some(l=>l.sets.some(s=>s.done))) confirmBox('You have an unfinished workout. Drop it and start this one?','Start this one',go); else go();
 }
 function gpClose(){
   clearInterval(GP.tick);GP.tick=0;const el=$('#gymplay');if(el){el.classList.remove('open');el.innerHTML=''}
   document.body.classList.remove('modal-open');try{window.MineNative.keepAwake(false)}catch(e){}
   render();
 }
-const gpSess=()=>gymSess(S.gym.cur.date);
+const gpSess=()=>gymByKey(S.gym.cur.key);
 const mmss=s=>{s=Math.max(0,Math.round(s));return Math.floor(s/60)+':'+pad(s%60)};
 function gpBeep(n){try{Snd.unlock();if(Snd.ready()){const t=Snd.ctx.currentTime+.02;for(let i=0;i<(n||2);i++)Snd.tone(988,t+i*.22,.16,'sine',.3)}}catch(e){}try{navigator.vibrate&&navigator.vibrate(n>2?[300,120,300,120,300]:[250,120,250])}catch(e){}}
 function gpRender(){
@@ -2020,30 +2057,32 @@ function gpFinish(){
   const items=c.items.map((l,i)=>({ex:l.ex,sets:l.sets.filter(s=>s.done).map(s=>({w:s.w===''?0:+s.w,r:s.r===''?0:+s.r}))})).filter(l=>l.sets.length);
   if(!items.length){confirmBox('No sets ticked yet. Leave without saving this workout?','Leave',()=>{S.gym.cur=null;Store.mark('gym');gpClose()});return}
   const prs=[];items.forEach(l=>{if(exType(l.ex)!=='reps')return;const b=gymBest(l.ex),m=l.sets.reduce((a,s)=>s.w>a.w?s:a,{w:0,r:0});if(b&&m.w>b.w)prs.push({ex:l.ex,w:m.w,r:m.r})});
-  S.gym.logs=S.gym.logs.filter(l=>l.date!==c.date);
-  S.gym.logs.push({id:uid(),date:c.date,week:x.week,title:x.title,kind:x.kind,dur,items});
+  S.gym.logs.push({id:uid(),date:todayS(),prog:x.home?null:gymProg(),seq:x.home?null:x.seq,home:x.home||null,title:x.title,kind:x.kind,dur,items});
+  // finishing the next workout (or a later one) moves you on; home workouts don't
+  if(!x.home&&x.seq>=gymPos()) S.gym.pos[gymProg()]=x.seq+1;
   c.finished={dur,sets:items.reduce((a,l)=>a+l.sets.length,0),vol:r2(items.reduce((a,l)=>a+l.sets.reduce((b,s)=>b+s.w*s.r,0),0)),prs};
   c.restEnd=0;c.tm=null;Store.mark('gym');gpBeep(2);gpFinishScreen();
 }
 function gpFinishScreen(){
-  const c=S.gym.cur,f=c.finished,x=gpSess(),nx=gymNextFrom(ymd(addDays(parseYmd(c.date),1)));
+  const c=S.gym.cur,f=c.finished,x=gpSess(),nx=gymNext();
   $('#gymplay').innerHTML=`<div class="gp-wrap" style="text-align:center">
-    <div style="font-size:3.4rem;margin-top:30px">🎉</div><h2 style="font-size:1.8rem">Workout complete</h2><div class="muted">${x.emoji} ${esc(x.title)} · Week ${x.week}</div>
+    <div style="font-size:3.4rem;margin-top:30px">🎉</div><h2 style="font-size:1.8rem">Workout complete</h2><div class="muted">${x.emoji} ${esc(x.title)} · ${esc(x.label)}</div>
     <div class="ledger" style="margin:20px 0;text-align:left"><div><div class="k">Time</div><div class="v num">${Math.round(f.dur/60)} min</div></div><div><div class="k">Sets</div><div class="v num">${f.sets}</div></div><div><div class="k">Volume</div><div class="v num">${Math.round(f.vol).toLocaleString('en-IN')} kg</div></div><div><div class="k">Personal records</div><div class="v num">${f.prs.length}</div></div></div>
     ${f.prs.map(p=>`<div class="gpr">🏆 New best: <b>${esc(EX[p.ex].n)}</b> ${p.w} kg × ${p.r}</div>`).join('')}
-    ${nx?`<div class="panel" style="text-align:left;margin-top:16px"><div class="tiny muted" style="font-weight:700;letter-spacing:.06em">NEXT WORKOUT · ${esc(fmtDay(nx.date).toUpperCase())}</div><h3 style="margin-top:4px">${nx.emoji} ${esc(nx.title)}</h3><div class="small muted">${nx.items.map(i=>EX[i.ex].n).join(' · ')}</div></div>`:'<p>That was the last workout of the plan. Brilliant work.</p>'}
-    <div class="gmotiv" style="text-align:left"><span>💬</span><div>${esc(gymMotiv(nx?nx.date:c.date))}</div></div>
+    ${nx?`<div class="panel" style="text-align:left;margin-top:16px"><div class="tiny muted" style="font-weight:700;letter-spacing:.06em">NEXT WORKOUT · ${esc(nx.label.toUpperCase())}</div><h3 style="margin-top:4px">${nx.emoji} ${esc(nx.title)}</h3><div class="small muted">${nx.items.map(i=>EX[i.ex].n).join(' · ')}</div></div>`:'<p>That was the last workout of the plan. Brilliant work.</p>'}
+    <div class="gmotiv" style="text-align:left"><span>💬</span><div>${esc(gymMotiv(ymd(addDays(new Date(),1))))}</div></div>
     <button class="btn primary" data-act="gp-done" style="width:100%;margin-top:10px;padding:14px">Done</button></div>`;
 }
 
 function gymTodayPanel(){
-  gymInit();const n=todayS();let x=gymSess(n),lbl='Today';
-  if(!x){if(gymWeek(n)>=1)return '';x=gymSess(S.gym.start);lbl='Starts '+fmtDay(S.gym.start)}
-  const done=gymLog(x.date),nx=done?gymNextFrom(ymd(addDays(parseYmd(x.date),1))):null,cur=S.gym.cur&&S.gym.cur.date===x.date;
-  return `<div class="panel"><div class="panel-head"><h3>Gym · Week ${x.week}</h3><a class="btn sm ghost" href="#gym">Open</a></div>
+  gymInit();const n=todayS(),x=gymNext(),today=S.gym.logs.filter(l=>l.date===n);
+  if(!x) return '';
+  const cur=S.gym.cur&&!S.gym.cur.finished?gymByKey(S.gym.cur.key):null;
+  return `<div class="panel"><div class="panel-head"><h3>Gym</h3><a class="btn sm ghost" href="#gym">Open</a></div>
     <div class="gmotiv" style="margin-bottom:10px"><span>💬</span><div>${esc(gymMotiv(n))}</div></div>
-    ${done?`<div class="row"><span class="grow"><b>${I.check} ${x.emoji} ${esc(x.title)} done</b>${nx?`<div class="tiny muted">Next: ${fmtDay(nx.date)} · ${nx.emoji} ${esc(nx.title)}</div>`:''}</span></div>`
-      :`<div class="row"><span class="grow"><span class="tiny muted">${lbl}</span><div style="font-weight:700">${x.emoji} ${esc(x.title)}</div><div class="tiny muted">${x.items.map(i=>EX[i.ex].n).slice(0,4).join(' · ')}${x.items.length>4?' …':''}</div></span><button class="btn primary sm" data-act="gym-start" data-v="${x.date}">${I.play} ${cur?'Resume':'Start'}</button></div>`}
+    ${today.length?`<div class="small" style="margin-bottom:8px"><b class="pos">${I.check} Done today:</b> ${today.map(l=>esc(l.title)).join(', ')}</div>`:''}
+    <div class="row"><span class="grow"><span class="tiny muted">${cur?'In progress':'Next workout · '+esc(x.label)}</span><div style="font-weight:700">${(cur||x).emoji} ${esc((cur||x).title)}</div><div class="tiny muted">${(cur||x).items.map(i=>EX[i.ex].n).slice(0,4).join(' · ')}${(cur||x).items.length>4?' …':''}</div></span><button class="btn primary sm" data-act="gym-start" data-v="${cur?S.gym.cur.key:x.seq}">${I.play} ${cur?'Resume':'Start'}</button></div>
+    <button class="btn sm ghost" data-act="gym-home" data-v="run" style="margin-top:8px;padding-left:0">🏠 At home today? Do a home workout</button>
   </div>`;
 }
 
@@ -2252,10 +2291,13 @@ ui(async e=>{
     case 'gym-tab': UI.gymTab=v; render(); window.scrollTo(0,0); break;
     case 'gym-settings': gymSettingsSheet(); break;
     case 'gym-settings-save': gymSettingsRead(); Store.mark('gym'); closeModal(); render(); toast('Gym settings saved'); break;
-    case 'gym-prog': gymSettingsRead(); S.gym.program=v; if(S.gym.cur&&!S.gym.cur.finished)S.gym.cur=null; Store.mark('gym'); gymSettingsSheet(); render(); break;
+    case 'gym-prog': gymSettingsRead(); S.gym.program=v; if(S.gym.cur&&!S.gym.cur.finished&&!S.gym.cur.home)S.gym.cur=null; Store.mark('gym'); gymSettingsSheet(); render(); break;
     case 'gym-rem': gymSettingsRead(); S.gym.rem[v]=!S.gym.rem[v]; Store.mark('gym'); gymSettingsSheet(); break;
     case 'gym-ex': gymExSheet(v); break;
     case 'gym-day': gymDaySheet(v); break;
+    case 'gym-home': gymStart('h:'+v); break;
+    case 'gym-skip': {const nx=gymNext();confirmBox('Skip '+nx.title+' and move to the next workout?','Skip',()=>{S.gym.pos[gymProg()]=nx.seq+1;Store.mark('gym');render();toast('Moved to '+gymNext().label)});break}
+    case 'gym-setpos': S.gym.pos[gymProg()]=+v; Store.mark('gym'); closeModal(); render(); toast('Next workout: '+gymNext().label); break;
     case 'gym-week': UI.gymWeekOpen=UI.gymWeekOpen===+v?0:+v; render(); break;
     case 'gym-start': gymStart(v||todayS()); break;
     case 'gym-weigh': gymWeighSheet(v); break;
