@@ -176,6 +176,7 @@ button.cbar{cursor:pointer}
 .gcues{margin:6px 0 0;padding-left:20px;line-height:1.5}.gcues li{margin:3px 0}
 #gymplay{position:fixed;inset:0;z-index:56;display:none;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
 #gymplay.open{display:block}
+body.gp-open #modal{z-index:58} /* confirm boxes show above the workout */
 .gp-wrap{max-width:640px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top,0px)) 16px calc(24px + env(safe-area-inset-bottom,0px));position:relative;min-height:100%}
 .gp-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .gp-bar{height:4px;border-radius:2px;background:var(--surface2);margin-bottom:12px;overflow:hidden}.gp-bar i{display:block;height:100%;background:var(--accent);transition:width .3s}
@@ -1922,7 +1923,7 @@ function gymHomePanel(){
 }
 function gymTodayTab(){
   const n=todayS(),nx=gymNext(),nu=GNUTR(Math.max(1,Math.min(24,gymWeek(n)))),today=S.gym.logs.filter(l=>l.date===n);
-  let main=today.length?`<div class="gdone">${I.check}<div class="grow"><b>Done today</b><div class="small">${today.map(l=>esc(l.title)).join(', ')}</div></div></div>`:'';
+  let main=today.length?`<div class="gdone">${I.check}<div class="grow"><b>Done today</b>${today.map(l=>`<div class="row small" style="gap:6px"><span class="grow">${l.home?'🏠 ':''}${esc(l.title)}</span><button class="btn sm ghost" data-act="gym-log-del" data-id="${l.id}">Undo</button></div>`).join('')}</div></div>`:'';
   main+=nx?gymSessCard(nx,{label:'Next workout · '+nx.label,extra:`<button class="btn" data-act="gym-skip">Skip</button>`})
     :`<div class="panel"><div class="empty">You finished all 24 weeks. Keep going at about 1,900–2,000 calories until you reach 75–78 kg. Switch to your trainer’s circuit in settings, or start the guide again.</div><button class="btn" data-act="gym-setpos" data-v="0">Start the guide again</button></div>`;
   main+=gymHomePanel();
@@ -1992,7 +1993,7 @@ function gymProgressTab(){
     <div class="panel"><h3>Progress photos</h3><p class="small muted" style="margin:6px 0 0">Every 2 weeks: same mirror, same light, front and side. Mine reminds you on Monday mornings; the photos stay in your phone’s gallery. Compare them with week 1.</p></div>
   </div><div>
     <div class="panel flush"><div class="panel-head"><h3>Strength</h3><span class="tiny muted">Best set</span></div>${exs.length?exs.map(k=>{const b=gymBest(k),l=gymLast(k),ls=l.sets.reduce((a,s)=>+s.w>+a.w?s:a,l.sets[0]);return `<button class="txrow" data-act="gym-ex" data-v="${k}" style="width:100%;text-align:left;border:0;background:none"><div class="grow"><b>${esc(EX[k].n)}</b><div class="tiny muted">Last ${fmtDay(l.date)}: ${ls.w||0} kg × ${ls.r||0}</div></div><div style="text-align:right"><b class="num">${b.w} kg × ${b.r}</b><div class="tiny muted">est. 1RM ${e1rm(b.w,b.r)} kg</div></div></button>`}).join(''):'<div class="empty">Finish a workout to see your lifts here. Strength going up while weight goes down means you’re keeping muscle.</div>'}</div>
-    <div class="panel"><h3>Recent workouts</h3>${logs.slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,8).map(l=>`<div class="row small" style="padding:5px 0"><span class="grow">${fmtDay(l.date)} · ${l.home?'🏠 ':''}${esc(l.title)}</span><span class="tiny muted">${Math.round((l.dur||0)/60)} min</span></div>`).join('')||'<div class="empty" style="padding:10px">No workouts yet.</div>'}</div>
+    <div class="panel"><h3>Recent workouts</h3>${logs.slice().sort((a,b)=>a.date<b.date?1:-1).slice(0,8).map(l=>`<div class="row small" style="padding:5px 0"><span class="grow">${fmtDay(l.date)} · ${l.home?'🏠 ':''}${esc(l.title)}</span><span class="tiny muted">${Math.round((l.dur||0)/60)} min</span><button class="icon-btn" data-act="gym-log-del" data-id="${l.id}" aria-label="Delete this workout">${I.trash}</button></div>`).join('')||'<div class="empty" style="padding:10px">No workouts yet.</div>'}${logs.length?`<button class="btn sm ghost" data-act="gym-clear-all" style="margin-top:6px;color:var(--red)">Delete all workout history</button>`:''}</div>
   </div></div>`;
 }
 
@@ -2005,7 +2006,7 @@ function gymExSheet(k){
     ${exHowHTML(k)}
     ${b?`<h3 style="margin-top:12px;font-size:1rem">Your progress</h3><div class="small">Best: <b>${b.w} kg × ${b.r}</b> (${fmtDay(b.date)}) · est. 1RM ${e1rm(b.w,b.r)} kg</div>${chart}`:''}
     ${h.length?`<div style="margin-top:8px">${h.map(x=>`<div class="row small" style="padding:3px 0"><span style="min-width:80px" class="muted">${fmtDay(x.date)}</span><span class="grow">${x.sets.map(s=>exType(k)==='hold'?(s.r||0)+'s':(s.w?s.w+'×':'')+(s.r||'')).join(', ')}</span></div>`).join('')}</div>`:''}
-    <div class="sheet-foot"><button class="btn primary" data-act="close-modal">Close</button></div>`,{type:'gymex'});
+    <div class="sheet-foot">${h.length?`<button class="btn danger left" data-act="gym-ex-clear" data-v="${k}">${I.trash} Clear history</button>`:''}<button class="btn primary" data-act="close-modal">Close</button></div>`,{type:'gymex'});
 }
 const shortD=s=>{const d=parseYmd(s);return d.getDate()+'/'+(d.getMonth()+1)};
 function gymDaySheet(i){
@@ -2054,7 +2055,7 @@ function gymStart(key){
     if(!S.gym.cur||S.gym.cur.key!==key) S.gym.cur={key,seq:x.home?null:x.seq,home:x.home||null,started:Date.now(),at:0,restEnd:0,tm:null,items:x.items.map(it=>({ex:it.ex,sets:[...Array(it.sets||1)].map(()=>({w:'',r:'',done:false}))}))};
     Store.mark('gym'); closeModal();
     let el=$('#gymplay'); if(!el){el=document.createElement('div');el.id='gymplay';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');document.body.appendChild(el)}
-    el.classList.add('open');document.body.classList.add('modal-open');
+    el.classList.add('open');document.body.classList.add('modal-open','gp-open');
     try{window.MineNative.keepAwake(true)}catch(e){}
     clearInterval(GP.tick);GP.tick=setInterval(gpTick,250);
     gpRender();
@@ -2064,7 +2065,7 @@ function gymStart(key){
 }
 function gpClose(){
   clearInterval(GP.tick);GP.tick=0;const el=$('#gymplay');if(el){el.classList.remove('open');el.innerHTML=''}
-  document.body.classList.remove('modal-open');try{window.MineNative.keepAwake(false)}catch(e){}
+  document.body.classList.remove('modal-open','gp-open');try{window.MineNative.keepAwake(false)}catch(e){}
   render();
 }
 const gpSess=()=>gymByKey(S.gym.cur.key);
@@ -2077,7 +2078,7 @@ function gpRender(){
   const st=steps[c.at],it=x.items[st.i],e=EX[it.ex],t=it.type||exType(it.ex),log=c.items[st.i];
   const last=gymLast(it.ex),lastSet=last?last.sets[Math.min(st.s,last.sets.length-1)]:null;
   const nextSt=steps.slice(c.at+1).find(z=>!c.items[z.i].sets[z.s].done),nextIt=nextSt?x.items[nextSt.i]:null;
-  const itemIdx=x.items.indexOf(it)+1,doneN=steps.filter(z=>c.items[z.i].sets[z.s].done).length;
+  const itemIdx=x.items.indexOf(it)+1,doneN=steps.filter(z=>c.items[z.i].sets[z.s].done).length,prog=Math.max(doneN,c.at);
   let work='';
   if(t==='time'||t==='interval'){
     const tm=c.tm&&c.tm.i===st.i?c.tm:null;
@@ -2087,12 +2088,13 @@ function gpRender(){
     const unit=t==='hold'?'sec':t==='carry'?'m':'reps';
     work=`<div class="gsets"><div class="gsets-h"><span>Set</span><span>Last time</span><span>kg</span><span>${unit}</span><span></span></div>
       ${log.sets.map((s,k)=>{const ls=last?last.sets[Math.min(k,last.sets.length-1)]:null,isCur=k===st.s;return `<div class="gset${isCur?' cur':''}${s.done?' done':''}"><span class="num">${x.circuit?'R':''}${k+1}</span><span class="tiny muted">${ls?(ls.w?ls.w+'×':'')+(ls.r||'—'):'—'}</span><input class="in num gp-in" data-i="${st.i}" data-s="${k}" data-f="w" type="number" inputmode="decimal" step="0.5" value="${s.w}" placeholder="${ls&&ls.w?ls.w:''}" aria-label="Weight set ${k+1}"><input class="in num gp-in" data-i="${st.i}" data-s="${k}" data-f="r" type="number" inputmode="numeric" value="${s.r}" placeholder="${(String(it.reps).match(/\d+/g)||[''])[0]}" aria-label="${unit} set ${k+1}"><button class="gtick" data-act="gp-set" data-i="${st.i}" data-s="${k}" aria-pressed="${s.done}" aria-label="Set ${k+1} done">${I.check}</button></div>`}).join('')}
+      <div class="row wrap" style="gap:8px;margin-top:10px">${log.sets.some(z=>!z.done)?`<button class="btn sm primary" data-act="gp-all" data-i="${st.i}">${I.check} All ${x.circuit?'rounds':'sets'} done</button>`:''}${log.sets.some(z=>z.done||z.w!==''||z.r!=='')?`<button class="btn sm ghost" data-act="gp-reset-ex" data-i="${st.i}">Reset this exercise</button>`:''}</div>
       ${t==='hold'?`<button class="btn sm" data-act="gp-hold" style="margin-top:8px">${I.clock} Start ${(String(it.reps).match(/\d+/)||[30])[0]} s timer</button> <span class="num" id="gp-hv" style="font-weight:700;margin-left:8px"></span>`:''}</div>`;
   }
   const rest=c.restEnd>Date.now();
   el.innerHTML=`<div class="gp-wrap">
-    <div class="gp-top"><button class="icon-btn" data-act="gp-close" aria-label="Close">${I.x}</button><div class="grow" style="min-width:0"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.emoji} ${esc(x.title)}</div><div class="tiny muted"><span id="gp-clock" class="num">${mmss((Date.now()-c.started)/1000)}</span> · ${doneN}/${steps.length} done</div></div><button class="btn sm" data-act="gp-finish">Finish</button></div>
-    <div class="gp-bar"><i style="width:${doneN/steps.length*100}%"></i></div>
+    <div class="gp-top"><button class="icon-btn" data-act="gp-close" aria-label="Close">${I.x}</button><div class="grow" style="min-width:0"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.emoji} ${esc(x.title)}</div><div class="tiny muted"><span id="gp-clock" class="num">${mmss((Date.now()-c.started)/1000)}</span> · step ${c.at+1} of ${steps.length} · ${doneN} done</div></div><button class="icon-btn" data-act="gp-discard" aria-label="Discard workout" title="Discard workout">${I.trash}</button><button class="btn sm primary" data-act="gp-finish">Finish</button></div>
+    <div class="gp-bar"><i style="width:${prog/steps.length*100}%"></i></div>
     <div class="gp-name"><div class="tiny muted" style="font-weight:700;letter-spacing:.06em">EXERCISE ${itemIdx} OF ${x.items.length}${x.circuit&&it.sets?' · ROUND '+(st.s+1)+' OF '+x.circuit:''}</div><h2>${esc(e.n)}</h2><div class="small muted">${esc(gymItemLine(it))}${lastSet&&t==='reps'&&lastSet.w?` · last time ${lastSet.w} kg × ${lastSet.r}`:''}</div></div>
     ${exDemoHTML(it.ex)}
     <details class="gcue"${st.s===0&&!['time','interval'].includes(t)?' open':''}><summary>How to do it</summary>${exHowHTML(it.ex)}</details>
@@ -2122,14 +2124,26 @@ function gpTick(){
     }
   }
 }
+// Fills a ticked set's empty boxes: target reps, and last time's weight
+function gpFill(i,s){
+  const it=gpSess().items[i],set=S.gym.cur.items[i].sets[s],t=it.type||exType(it.ex);
+  if(t==='reps'&&set.r===''){const m=String(it.reps).match(/\d+/g);if(m)set.r=m[m.length>1?1:0]}
+  if(t==='hold'&&set.r===''){const m=String(it.reps).match(/\d+/);if(m)set.r=m[0]}
+  if(set.w===''){const l=gymLast(it.ex);if(l){const ls=l.sets[Math.min(s,l.sets.length-1)];if(ls&&ls.w)set.w=ls.w}}
+}
+function gpAllDone(i){
+  const c=S.gym.cur,steps=gymSteps(gpSess());
+  c.items[i].sets.forEach((z,s)=>{if(!z.done){gpFill(i,s);z.done=true}});
+  c.restEnd=0;const nx=steps.findIndex(z=>!c.items[z.i].sets[z.s].done);
+  if(nx<0){Store.mark('gym');return gpFinish()}
+  c.at=nx;Store.mark('gym');gpRender();toast(EX[c.items[i].ex].n+' done');
+}
 function gpSetDone(i,s){
   const c=S.gym.cur,x=gpSess(),it=x.items[i],set=c.items[i].sets[s],steps=gymSteps(x);
   set.done=!set.done;
   if(set.done){
     const t=it.type||exType(it.ex);
-    if(t==='reps'&&set.r===''){const m=String(it.reps).match(/\d+/g);if(m)set.r=m[m.length>1?1:0]}
-    if(t==='hold'&&set.r===''){const m=String(it.reps).match(/\d+/);if(m)set.r=m[0]}
-    if(set.w===''){const l=gymLast(it.ex);if(l){const ls=l.sets[Math.min(s,l.sets.length-1)];if(ls&&ls.w)set.w=ls.w}}
+    gpFill(i,s);
     const nx=steps.findIndex(z=>!c.items[z.i].sets[z.s].done);
     if(nx<0){Store.mark('gym');return gpFinish()}
     // rest: normal sets use the exercise's rest; in a circuit only after the last exercise of a round
@@ -2391,6 +2405,16 @@ ui(async e=>{
     case 'gym-weigh': gymWeighSheet(v); break;
     case 'gym-weigh-save': {const d=$('#gw-date').value||todayS(),w=r2($('#gw-w').value),wa=r2($('#gw-waist').value);if(!(w>0)&&!(wa>0))return toast('Enter your weight or waist');
       let b=S.gym.body.find(x=>x.date===d);if(!b){b={date:d};S.gym.body.push(b)}if(w>0)b.w=w;if(wa>0)b.waist=wa;Store.mark('gym');closeModal();render();toast('Saved');break}
+    case 'gp-all': gpAllDone(+el.dataset.i); break;
+    case 'gp-reset-ex': {const c=S.gym.cur,i=+el.dataset.i;c.items[i].sets.forEach(z=>{z.done=false;z.w='';z.r=''});c.restEnd=0;c.at=gymSteps(gpSess()).findIndex(z=>z.i===i);Store.mark('gym');gpRender();toast('Exercise reset');break}
+    case 'gp-discard': confirmBox('Discard this workout? Nothing from it will be saved.','Discard',()=>{S.gym.cur=null;Store.mark('gym');gpClose();toast('Workout discarded')}); break;
+    case 'gym-log-del': {const l=S.gym.logs.find(x=>x.id===id);if(!l)break;confirmBox('Delete “'+l.title+'” from '+fmtDay(l.date)+'? Its sets are removed from your history.','Delete',()=>{
+      S.gym.logs=S.gym.logs.filter(x=>x.id!==id);
+      // if this was the workout that moved you on, it becomes next again
+      if(l.seq!=null&&l.prog&&S.gym.pos[l.prog]===l.seq+1&&!S.gym.logs.some(x=>x.prog===l.prog&&x.seq===l.seq))S.gym.pos[l.prog]=l.seq;
+      Store.mark('gym');render();toast('Workout deleted')});break}
+    case 'gym-clear-all': confirmBox('Delete every saved workout and start from Day 1? Your weight and waist log stay.','Delete all',()=>{S.gym.logs=[];S.gym.cur=null;S.gym.pos={trainer:0,plan:0};Store.mark('gym');render();toast('Workout history cleared')}); break;
+    case 'gym-ex-clear': confirmBox('Clear all saved sets for '+EX[v].n+'?','Clear',()=>{S.gym.logs.forEach(l=>{l.items=(l.items||[]).filter(i=>i.ex!==v)});Store.mark('gym');render();toast('History cleared')}); break;
     case 'gp-close': gpClose(); toast('Workout paused. Resume it from Gym'); break;
     case 'gp-finish': confirmBox('Finish and save this workout now?','Finish',()=>gpFinish()); break;
     case 'gp-done': S.gym.cur=null; Store.mark('gym'); gpClose(); break;
