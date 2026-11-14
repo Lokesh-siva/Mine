@@ -166,6 +166,8 @@ button.cbar{cursor:pointer}
 .gchart .gpt{fill:var(--ink);opacity:.55}
 .gkey{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
 .gkey.tg{background:var(--muted)}.gkey.avg{background:var(--accent)}.gkey.pt{width:6px;height:6px;border-radius:50%;background:var(--ink);opacity:.55}
+.gvideo{width:100%;max-height:320px;border-radius:14px;background:#000;display:block;margin-top:6px}
+.gvid-add{border:1px dashed var(--line);border-radius:14px;padding:12px;margin-top:6px}
 .gdemo{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:#fff;border-radius:14px;padding:8px;margin-top:6px}
 .gdemo figure{margin:0;text-align:center}.gdemo img{width:100%;height:auto;max-height:200px;object-fit:contain;display:block}
 .gdemo figcaption{font-size:.7rem;font-weight:700;color:#555;letter-spacing:.05em;text-transform:uppercase}
@@ -1742,9 +1744,28 @@ const EXHEVY={'goblet-squat':'how-to-goblet-squat','lat-pulldown':'how-to-lat-pu
   'hip-thrust':'how-to-hip-thrust','assisted-pullup':'pull-up','lateral-raise':'how-to-lateral-raise-dumbbell','face-pull':'face-pull','farmers-carry':'farmers-walk','cable-crunch':'how-to-cable-crunch',
   'triceps-pushdown':'how-to-triceps-rope-pushdown','kickback':'how-to-triceps-kickback','db-curl':'how-to-bicep-curl-dumbbell','bb-curl':'how-to-bicep-curl-barbell','hammer-curl':'how-to-hammer-curl-dumbbell',
   'calf-raise':'how-to-calf-press-machine','leg-raise':'leg-raises','russian-twist':'russian-twists','jump-squat':'how-to-jump-squat'};
+/* ----- your own exercise videos, saved only on this phone (Android app) ----- */
+let GVID=null;
+function vidList(){if(!NATIVE)return {};if(!GVID){try{GVID=JSON.parse(window.MineNative.videoList())||{}}catch(e){GVID={}}}return GVID}
+const vidKey=k=>String(k).toLowerCase().replace(/[^a-z0-9-]/g,'');
+function exVideoHTML(k){
+  if(!NATIVE) return '';
+  if(UI.vidSaving===k) return `<div class="gvid-add"><b>Saving your video…</b><div class="tiny muted">Big videos take a few seconds.</div></div>`;
+  const v=vidList()[vidKey(k)];
+  if(v) return `<video class="gvideo" src="__video/${vidKey(k)}.mp4?t=${v.t}" autoplay muted loop playsinline controls preload="metadata"></video>
+    <div class="row wrap" style="gap:4px;margin:4px 0"><span class="tiny muted grow">Your video · ${(v.size/1048576).toFixed(1)} MB</span><button class="btn sm ghost" data-act="vid-pick" data-v="${k}">Replace</button><button class="btn sm ghost" data-act="vid-pick" data-v="${k}" data-mode="camera">Record</button><button class="btn sm ghost" data-act="vid-del" data-v="${k}" style="color:var(--red)">Remove</button></div>`;
+  return `<div class="gvid-add"><b>📹 Add your video</b><div class="tiny muted">Film yourself or your trainer, or pick a clip from your phone. It’s saved only on this phone.</div>
+    <div class="row" style="gap:6px;margin-top:8px"><button class="btn sm" data-act="vid-pick" data-v="${k}">From gallery</button><button class="btn sm" data-act="vid-pick" data-v="${k}" data-mode="camera">Record</button></div></div>`;
+}
+// Called by the app while it copies a chosen video in: 'saving', then true/false (null = cancelled)
+window.nativeVideoSaved=(k,ok)=>{
+  if(ok==='saving') UI.vidSaving=k; else {UI.vidSaving=null;GVID=null;if(ok===true)toast('Video saved');else if(ok===false)toast('Couldn’t save that video')}
+  if(modalCtx&&modalCtx.type==='gymex'&&modalCtx.k===k) gymExSheet(k);
+  else if($('#gymplay')&&$('#gymplay').classList.contains('open')&&S.gym.cur&&!S.gym.cur.finished) gpRender();
+};
 function exDemoHTML(k){
-  const d=EXDEMO[k],h=EXHEVY[k]; if(!d&&!h) return '';
-  return `${d?`<div class="gdemo" role="img" aria-label="${esc(EX[k].n)}: start and end position"><figure><img src="ex/${d[0]}-relaxation.svg" alt=""><figcaption>Start</figcaption></figure><figure><img src="ex/${d[0]}-tension.svg" alt=""><figcaption>End</figcaption></figure></div>
+  const d=EXDEMO[k],h=EXHEVY[k],vid=exVideoHTML(k); if(!d&&!h) return vid;
+  return vid+`${d?`<div class="gdemo" role="img" aria-label="${esc(EX[k].n)}: start and end position"><figure><img src="ex/${d[0]}-relaxation.svg" alt=""><figcaption>Start</figcaption></figure><figure><img src="ex/${d[0]}-tension.svg" alt=""><figcaption>End</figcaption></figure></div>
     ${d[1]?`<div class="tiny muted" style="margin-top:4px">${esc(d[1])}</div>`:''}<div class="tiny faint" style="margin-top:2px">Pictures: <a href="https://github.com/everkinetic/data" target="_blank" rel="noopener" style="color:inherit">Everkinetic</a> by Greg Priday, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY-SA 4.0</a></div>`:''}
     ${h?`<a class="gwatch" href="https://www.hevyapp.com/exercises/${h}/" target="_blank" rel="noopener">${I.play}<span><b>Watch the video on Hevy</b><span class="tiny">Opens hevyapp.com in your browser</span></span>${I.right}</a>`:''}`;
 }
@@ -2082,7 +2103,7 @@ function gymExSheet(k){
     ${exHowHTML(k)}
     ${b?`<h3 style="margin-top:12px;font-size:1rem">Your progress</h3><div class="small">Best: <b>${b.w} kg × ${b.r}</b> (${fmtDay(b.date)}) · est. 1RM ${e1rm(b.w,b.r)} kg</div>${chart}`:''}
     ${h.length?`<div style="margin-top:8px">${h.map(x=>`<div class="row small" style="padding:3px 0"><span style="min-width:80px" class="muted">${fmtDay(x.date)}</span><span class="grow">${x.sets.map(s=>exType(k)==='hold'?(s.r||0)+'s':(s.w?s.w+'×':'')+(s.r||'')).join(', ')}</span></div>`).join('')}</div>`:''}
-    <div class="sheet-foot">${h.length?`<button class="btn danger left" data-act="gym-ex-clear" data-v="${k}">${I.trash} Clear history</button>`:''}<button class="btn primary" data-act="close-modal">Close</button></div>`,{type:'gymex'});
+    <div class="sheet-foot">${h.length?`<button class="btn danger left" data-act="gym-ex-clear" data-v="${k}">${I.trash} Clear history</button>`:''}<button class="btn primary" data-act="close-modal">Close</button></div>`,{type:'gymex',k});
 }
 const shortD=s=>{const d=parseYmd(s);return d.getDate()+'/'+(d.getMonth()+1)};
 function gymDaySheet(i){
@@ -2106,6 +2127,7 @@ function gymSettingsSheet(){
     <label class="f" for="gs-start">Weight plan start date</label><input class="in" type="date" id="gs-start" value="${g.start}">
     <div class="tiny muted" style="margin-top:4px">Only used for your weight targets and weigh-in reminders, not for workouts.</div>
     <div class="frow"><div><label class="f" for="gs-sw">Starting weight (kg)</label><input class="in num" id="gs-sw" type="number" step="0.1" value="${g.startW}"></div><div><label class="f" for="gs-gw">Goal weight (kg)</label><input class="in num" id="gs-gw" type="number" step="0.1" value="${g.goalW}"></div></div>
+    ${NATIVE?(()=>{const vl=Object.values(vidList()),mb=vl.reduce((a,x)=>a+x.size,0)/1048576;return `<h3 style="margin-top:16px">Your exercise videos</h3><div class="row" style="padding:6px 0"><span class="grow small muted">${vl.length?vl.length+' video'+(vl.length>1?'s':'')+' · '+mb.toFixed(1)+' MB on this phone. Not included in backups.':'None yet. Add one from any exercise.'}</span>${vl.length?`<button class="btn sm ghost" data-act="vid-del-all" style="color:var(--red)">Remove all</button>`:''}</div>`})():''}
     <h3 style="margin-top:16px">Reminders</h3>
     ${tg('workout','Workout reminder','Every day you haven’t trained yet, with your next workout','workoutTime')}
     ${tg('weigh','Weigh-in','Monday, Wednesday and Friday mornings','weighTime')}
@@ -2491,6 +2513,9 @@ ui(async e=>{
       Store.mark('gym');render();toast('Workout deleted')});break}
     case 'gym-clear-all': confirmBox('Delete every saved workout and start from Day 1? Your weight and waist log stay.','Delete all',()=>{S.gym.logs=[];S.gym.cur=null;S.gym.pos={trainer:0,plan:0};Store.mark('gym');render();toast('Workout history cleared')}); break;
     case 'gym-ex-clear': confirmBox('Clear all saved sets for '+EX[v].n+'?','Clear',()=>{S.gym.logs.forEach(l=>{l.items=(l.items||[]).filter(i=>i.ex!==v)});Store.mark('gym');render();toast('History cleared')}); break;
+    case 'vid-pick': try{window.MineNative.pickVideo(v,el.dataset.mode==='camera')}catch(err){toast('Videos can be added in the Android app')} break;
+    case 'vid-del': confirmBox('Remove your video for '+EX[v].n+' from this phone?','Remove',()=>{try{window.MineNative.deleteVideo(v)}catch(err){}GVID=null;closeModal();if($('#gymplay')&&$('#gymplay').classList.contains('open')&&S.gym.cur&&!S.gym.cur.finished)gpRender();else gymExSheet(v);toast('Video removed')}); break;
+    case 'vid-del-all': confirmBox('Remove all your exercise videos from this phone?','Remove all',()=>{Object.keys(vidList()).forEach(k=>{try{window.MineNative.deleteVideo(k)}catch(err){}});GVID=null;closeModal();toast('Videos removed')}); break;
     case 'gp-close': gpClose(); toast('Workout paused. Resume it from Gym'); break;
     case 'gp-finish': confirmBox('Finish and save this workout now?','Finish',()=>gpFinish()); break;
     case 'gp-done': S.gym.cur=null; Store.mark('gym'); gpClose(); break;

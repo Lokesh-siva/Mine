@@ -10,6 +10,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.CancellationSignal;
+import android.provider.MediaStore;
 import android.hardware.biometrics.BiometricPrompt;
 import android.view.WindowManager;
 import android.webkit.WebResourceResponse;
@@ -34,6 +35,9 @@ public class MainActivity extends Activity {
     private boolean loaded = false;
     private static final int FILE_REQ = 42;
     private static final int LOCK_REQ = 43;
+    private static final int VIDEO_REQ = 44;
+    private String videoKey = null;
+    private boolean picking = false;
     static final int SMS_PERM_REQ = 8;
     private static final long RELOCK_MS = 30_000L;
     private long leftAt = 0;
@@ -89,6 +93,9 @@ public class MainActivity extends Activity {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 Uri u = request.getUrl();
+                if ("file".equals(u.getScheme()) && u.getPath() != null && u.getPath().startsWith(VideoStore.PATH)) {
+                    return VideoStore.serve(MainActivity.this, u, request.getRequestHeaders());
+                }
                 if (isAppPage(u)) return null;
                 // The app is fully offline: block every other load inside the WebView
                 return new WebResourceResponse("text/plain", "utf-8", null);
@@ -193,7 +200,8 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
-        if (!authing && unlocked) leftAt = System.currentTimeMillis();
+        // choosing a video in another app shouldn't count as leaving Mine
+        if (!authing && !picking && unlocked) leftAt = System.currentTimeMillis();
     }
 
     private void onUnlocked() {
@@ -244,6 +252,27 @@ public class MainActivity extends Activity {
         pendingAction = json;
         intent.setAction(Intent.ACTION_MAIN);
         flushPending();
+    }
+
+    /** Opens the gallery (or the camera) to choose a video for an exercise. */
+    void pickVideo(String key, boolean camera) {
+        Intent i;
+        if (camera) {
+            i = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+        } else {
+            i = new Intent(Intent.ACTION_GET_CONTENT);
+            i.setType("video/*");
+            i.addCategory(Intent.CATEGORY_OPENABLE);
+        }
+        videoKey = key;
+        picking = true;
+        try {
+            startActivityForResult(i, VIDEO_REQ);
+        } catch (Exception e) {
+            picking = false;
+            videoKey = null;
+            runJs("window.nativeVideoSaved&&window.nativeVideoSaved(" + JSONObject.quote(key) + ",false)");
+        }
     }
 
     private void runJs(String js) {
@@ -302,6 +331,23 @@ public class MainActivity extends Activity {
             authing = false;
             if (resultCode == RESULT_OK) onUnlocked();
             else finish();
+            return;
+        }
+        if (requestCode == VIDEO_REQ) {
+            picking = false;
+            final String key = videoKey;
+            videoKey = null;
+            if (key == null) return;
+            final Uri src = resultCode == RESULT_OK && data != null ? data.getData() : null;
+            if (src == null) {
+                runJs("window.nativeVideoSaved&&window.nativeVideoSaved(" + JSONObject.quote(key) + ",null)");
+                return;
+            }
+            runJs("window.nativeVideoSaved&&window.nativeVideoSaved(" + JSONObject.quote(key) + ",'saving')");
+            new Thread(() -> {
+                boolean ok = VideoStore.save(getApplicationContext(), src, key);
+                runOnUiThread(() -> runJs("window.nativeVideoSaved&&window.nativeVideoSaved(" + JSONObject.quote(key) + "," + ok + ")"));
+            }).start();
             return;
         }
         if (requestCode == FILE_REQ && fileCallback != null) {

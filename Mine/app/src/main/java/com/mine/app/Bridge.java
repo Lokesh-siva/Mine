@@ -208,6 +208,21 @@ public class Bridge {
         Theme.setAccent(activity.getApplicationContext(), hex);
     }
 
+    @JavascriptInterface
+    public void pickVideo(String key, boolean camera) {
+        activity.runOnUiThread(() -> activity.pickVideo(key, camera));
+    }
+
+    @JavascriptInterface
+    public String videoList() {
+        return VideoStore.list(activity.getApplicationContext());
+    }
+
+    @JavascriptInterface
+    public boolean deleteVideo(String key) {
+        return VideoStore.delete(activity.getApplicationContext(), key);
+    }
+
     /** Keeps the screen on during a workout so the rest timer stays visible. */
     @JavascriptInterface
     public void keepAwake(boolean on) {
