@@ -2010,6 +2010,19 @@ function fiveLadder(){
 }
 function gymPlanTab(){
   const p=gymPos(),row=(s,i)=>`<button class="gitem" data-act="gym-day" data-v="${s.seq}"><span class="gnum">D${i+1}</span><span class="grow"><b>${s.emoji} ${esc(s.title)}</b><span class="tiny muted">${s.items.length} item${s.items.length>1?'s':''}${s.seq===p?' · next up':''}</span></span>${gymSeqDone(s.seq)?`<span class="pos">${I.check}</span>`:I.right}</button>`;
+  // the 5-day plan: every week laid out, grouped by stage, like the 6-month guide
+  if(gymProg()==='five'){
+    const cw=fiveWeek(),sub=s=>{const n=s.items.filter(i=>i.sets).length,f=s.items[s.items.length-1];return (s.circuit?s.circuit+' rounds · ':'')+n+' exercises'+(f&&!f.sets&&s.items.indexOf(f)>0?' · '+(f.mins?f.mins+' min '+(f.ex==='bike'?'bike':'walk'):f.rounds+' intervals'):'')};
+    const drow=(x,i)=>`<button class="gitem" data-act="gym-day" data-v="${x.seq}"><span class="gnum">D${i+1}</span><span class="grow"><b>${x.emoji} ${esc(x.title)}</b><span class="tiny muted">${esc(sub(x))}${x.seq===p?' · next up':''}</span></span>${gymSeqDone(x.seq)?`<span class="pos">${I.check}</span>`:I.right}</button>`;
+    let html=fiveLadder();let last='';
+    for(let w=1;w<=24;w++){
+      const lv=fiveLevel(w); if(lv.name!==last){html+=`<h3 class="gphase">${esc(lv.name)}</h3>`;last=lv.name}
+      const ss=[...Array(5)].map((_,i)=>gymSeq((w-1)*5+i)),done=ss.filter(x=>gymSeqDone(x.seq)).length,open=UI.gymWeekOpen===w||(UI.gymWeekOpen==null&&w===cw);
+      html+=`<div class="panel gwk${w===cw?' cur':''}"><button class="gwk-h" data-act="gym-week" data-v="${w}"><b>Week ${w}${lv.deload?' · deload':''}</b><span class="tiny muted">${lv.rounds} rounds · ${lv.fin} min finisher</span><span class="grow"></span><span class="tiny ${done?'pos':'muted'}">${done}/5</span></button>
+        ${open?`<div style="margin-top:8px">${ss.map(drow).join('')}<p class="tiny muted" style="margin:8px 2px 0">${esc(gymWeekTip(w))}</p></div>`:''}</div>`;
+    }
+    return html+`<p class="tiny muted" style="margin:4px 2px 14px">After week 24 it keeps going at the week 19+ level. Tap any day to see every exercise, start it, or make it your next workout.</p>`+gymHomePanel();
+  }
   if(gymRot()){const L=gymRotLen(),n0=p-p%L;
     return `<div class="panel"><h3>${gymProg()==='five'?'Your 5-day plan':'Your gym’s circuit'}</h3><p class="small muted" style="margin:6px 0 4px">Do them in order whenever you can. Finishing one moves you to the next; after Day ${L} it starts again at Day 1.${gymProg()==='five'?' Built from your gym’s circuits, plus a legs day, a cardio day, core work and a cardio finisher.':''}</p>${[...Array(L)].map((_,i)=>row(gymSeq(n0+i),i)).join('')}</div>${gymProg()==='five'?fiveLadder():''}${gymHomePanel()}`;}
   let html='';const cw=Math.floor(p/7)+1;
