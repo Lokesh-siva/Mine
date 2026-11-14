@@ -1608,6 +1608,14 @@ function alarmNext(){Q.shift();if(Q.length&&!Q[0].missed)Snd.play(S.settings.sou
 
 /* ================= gym: exercise library ================= */
 const EX={
+  'neck-roll':{n:'Neck rolls',m:'Neck',eq:'None',cues:['Slow, gentle circles','Shoulders stay down and relaxed']},
+  'arm-circles':{n:'Arm circles',m:'Shoulders',eq:'None',cues:['Arms straight out to the sides','Start small, make the circles bigger']},
+  'shoulder-rolls':{n:'Shoulder rolls',m:'Shoulders, upper back',eq:'None',cues:['Lift, roll back, drop down','Big, slow circles']},
+  'torso-twist':{n:'Torso twists',m:'Back, obliques',eq:'None',cues:['Hips face forward','Turn from your upper body']},
+  'hip-circles':{n:'Hip circles',m:'Hips, lower back',eq:'None',cues:['Hands on hips, feet hip-width','Draw big circles with your hips']},
+  'leg-swings':{n:'Leg swings',m:'Hips, hamstrings',eq:'None',cues:['Hold a wall or rail for balance','Swing loosely; let the range grow']},
+  'worlds-greatest':{n:'World’s greatest stretch',m:'Hips, hamstrings, upper back',eq:'None',cues:['Long lunge, back knee off the floor','Elbow toward the floor, then rotate and reach up']},
+  'ankle-rocks':{n:'Ankle rocks',m:'Ankles, calves',eq:'None',cues:['Knee drives forward over the toes','Heel stays down']},
   'warmup-bike':{n:'Bike warm-up',m:'Heart, legs',eq:'Exercise bike',type:'time',cues:['Easy pace, light resistance','Get a little warm and loose, not tired']},
   'bike':{n:'Exercise bike',m:'Heart, legs',eq:'Exercise bike',type:'time',cues:['Keep a steady cadence','Adjust the seat so your knee is slightly bent at the bottom']},
   'incline-walk':{n:'Incline treadmill walk',m:'Heart, glutes, calves',eq:'Treadmill',type:'time',cues:['Incline 8–12, speed 4.5–5.5 km/h','Don’t hold the handrails','Pace where you can still talk']},
@@ -1670,6 +1678,14 @@ const EX={
 };
 // Full instructions for each exercise: s = step by step, x = mistakes to avoid
 const EXHOW={
+  'neck-roll':{s:['Stand tall with your shoulders relaxed and down.','Lower your chin toward your chest.','Slowly roll your head toward one shoulder, then gently back, to the other shoulder, and down to the front again.','Make 5 slow circles, then 5 the other way.'],x:['Rolling fast or forcing your head far back.']},
+  'arm-circles':{s:['Stand with your feet hip-width apart.','Lift your arms straight out to the sides at shoulder height.','Make small forward circles, gradually making them bigger.','After 10, reverse and make 10 backward circles.'],x:['Shrugging your shoulders up toward your ears.']},
+  'shoulder-rolls':{s:['Stand tall with your arms relaxed at your sides.','Lift both shoulders up toward your ears.','Roll them back, squeezing your shoulder blades together.','Let them drop down and come forward to finish the circle.','Repeat 10 times, slowly.'],x:['Tiny, rushed movements; make each circle as big as you can.']},
+  'torso-twist':{s:['Stand with your feet a little wider than your hips, knees soft.','Raise your arms to chest height or cross them over your chest.','Keep your hips facing forward and turn your upper body to one side.','Turn back through the middle to the other side.','Do 10 to each side with a smooth rhythm.'],x:['Swinging hard and jerking your lower back.']},
+  'hip-circles':{s:['Stand with your feet hip-width apart and hands on your hips.','Push your hips forward, then to one side, back, and to the other side.','Draw 8 big, slow circles.','Reverse and do 8 the other way.'],x:['Moving your shoulders instead of your hips.']},
+  'leg-swings':{s:['Stand side-on to a wall or rail and hold it with one hand.','Swing the outside leg forward and back like a pendulum.','Keep your body upright and let the swing get a little higher each time.','Do 10, then turn around and swing the other leg.','Optional: face the wall and swing each leg side to side too.'],x:['Kicking as high as you can on the first swing.','Leaning your body back and forth.']},
+  'worlds-greatest':{s:['Step one foot far forward into a long lunge, back knee off the floor.','Put both hands on the floor inside your front foot.','Drop the elbow on the front-leg side toward the floor next to your foot.','Bring that hand back out, then rotate your chest and reach that arm to the ceiling.','Bring the hand down, straighten the front leg a little to stretch the hamstring, then step back.','Do 5 on one side, then 5 on the other.'],x:['Rushing; hold each position for a breath.','Letting the front knee cave inward.']},
+  'ankle-rocks':{s:['Kneel on one knee with the other foot flat in front of you.','Keep that heel down and push your knee forward past your toes.','Rock back, then forward again.','Do 10, then switch sides.'],x:['Letting the heel lift off the floor.']},
   'warmup-bike':{s:['Set the seat so your knee stays slightly bent when the pedal is at the bottom.','Choose a light resistance, level 2–4 on most bikes.','Pedal at an easy, steady pace for 5 minutes.','Breathe through your nose if you can; you should be able to talk.','In the last minute, pick up the pace a little to get ready for lifting.'],x:['Pushing hard: a warm-up should leave you fresh, not tired.']},
   'bike':{s:['Set the seat to hip height when standing next to the bike.','Sit with your back straight and hands light on the handlebars.','Choose a resistance you can hold for the whole session.','Pedal at a steady 70–90 turns a minute.','Keep a pace where you can still speak in short sentences.','Slow down for the last 2 minutes to cool down.'],x:['Seat too low, which strains your knees.','Leaning all your weight on the handlebars.']},
   'incline-walk':{s:['Step onto the treadmill and start the belt at a slow walk.','Raise the incline to 8–12 once you are moving.','Set the speed to 4.5–5.5 km/h.','Walk tall with your chest up and arms swinging naturally.','Take full steps, pushing through your whole foot.','Keep the pace where you can still talk; slow down if you can’t.','Lower the incline and speed for the last 2 minutes.'],x:['Holding the handrails, which cuts the work in half.','Leaning far forward into the slope.']},
@@ -1944,10 +1960,21 @@ function gymInit(){
 const gymWeek=s=>Math.floor((dayNum(s)-dayNum(S.gym.start))/7)+1;
 const gymPos=()=>S.gym.pos[gymProg()]||0;
 // Workout number i in the program's order, with no dates: the trainer's Day 1–6 on repeat, or the guide's 24 weeks × 7 days
-function gymSeq(i){
+function gymSeq(i){return withWarmup(gymSeqRaw(i))}
+function gymSeqRaw(i){
   if(gymRot()){const L=gymRotLen(),d=((i%L)+L)%L;return Object.assign({seq:i,label:(gymProg()==='five'?'Week '+(Math.floor(i/L)+1)+' · ':'')+'Day '+(d+1),week:Math.floor(i/L)+1},gymProg()==='five'?fiveDay(d,Math.floor(i/L)+1):trainerDay(1,d+1))}
   if(i<0||i>=168) return null;
   const w=Math.floor(i/7)+1,d=i%7;return Object.assign({seq:i,label:'Week '+w+' · Day '+(d+1),week:w},gymDay(w,[1,2,3,4,5,6,0][d]));
+}
+// Daily warm-up before every workout; gym days end it with 3 minutes on the bike
+const WARMUP=[['neck-roll','5 each direction'],['arm-circles','10 forward, 10 backward'],['shoulder-rolls','10'],['torso-twist','10 per side'],['hip-circles','8 each direction'],['leg-swings','10 per leg'],['worlds-greatest','5 per side'],['ankle-rocks','10 per side'],['bw-squat','10']];
+function withWarmup(x){
+  if(!x||x.kind==='walk'||x.items.some(i=>i.wu)) return x;
+  const items=x.items.slice(),f=items[0];
+  if(f&&(f.ex==='warmup-bike'||(f.ex==='walk'&&/warm/.test(f.note||'')))) items.shift();
+  const wu=WARMUP.map(([ex,reps])=>({ex,sets:1,reps,rest:0,wu:true}));
+  if(x.kind==='gym') wu.push({ex:'warmup-bike',mins:3,note:'3 min easy bike to finish the warm-up',wu:true});
+  return Object.assign({},x,{items:wu.concat(items)});
 }
 const gymNext=()=>gymSeq(gymPos());
 const gymSeqDone=i=>S.gym.logs.some(l=>l.seq===i&&l.prog===gymProg());
@@ -1955,7 +1982,8 @@ const gymKey=x=>x.home?'h:'+x.home:String(x.seq);
 // For days at home or travelling: mostly running and cardio, a little bodyweight work. The gym workout stays next in line.
 // For days at home or travelling: mostly running and cardio, a little bodyweight work. The gym workout stays next in line.
 // The run builds up like the guide: jog/walk intervals first, continuous running later.
-function gymHome(k){
+function gymHome(k){return withWarmup(gymHomeRaw(k))}
+function gymHomeRaw(k){
   const w=fiveWeek(),lv=fiveLevel(w),run=(mins)=>w<=4?{ex:'jog',type:'interval',rounds:Math.round(mins/3),work:60,rest:120,note:Math.round(mins/3)+' × 1 min jog + 2 min walk'}
     :w<=8?{ex:'jog',type:'interval',rounds:Math.round(mins/3),work:120,rest:60,note:Math.round(mins/3)+' × 2 min jog + 1 min walk'}
     :{ex:'jog',mins,note:mins+' min easy run; walk when you need to'};
@@ -1970,6 +1998,7 @@ function gymHome(k){
 }
 function gymMotiv(s){const n=dayNum(s||todayS())-dayNum(S.gym.start);return GMOTIV[((n%GMOTIV.length)+GMOTIV.length)%GMOTIV.length]}
 function gymItemLine(it,circ){
+  if(it.wu) return it.reps||it.note||'';
   const t=it.type||exType(it.ex);
   if(it.rounds) return it.note||`${it.rounds} × ${it.work}s hard / ${it.rest}s easy`;
   if(it.mins) return it.note||`${it.mins} min`;
@@ -1994,7 +2023,8 @@ function gymSessCard(x,opts={}){
   const key=gymKey(x),done=!x.home&&gymSeqDone(x.seq),cur=S.gym.cur&&S.gym.cur.key===key;
   return `<div class="panel gsess"><div class="panel-head"><div><div class="tiny muted" style="font-weight:700;letter-spacing:.06em;text-transform:uppercase">${esc(opts.label||x.label)}</div><h3 style="font-size:1.3rem;margin-top:2px">${x.emoji} ${esc(x.title)}</h3></div>${done?`<span class="chip on">${I.check} Done</span>`:''}</div>
     ${x.note?`<p class="small muted" style="margin:0 0 8px">${esc(x.note)}</p>`:''}
-    ${x.items.map((it,i)=>`${x.circuit&&i===x.items.findIndex(z=>z.sets)?`<div class="tiny" style="font-weight:700;margin:10px 0 2px">Then ${x.circuit} rounds of:</div>`:''}<button class="gitem" data-act="gym-ex" data-v="${it.ex}"><span class="gnum">${i+1}</span><span class="grow" style="min-width:0"><b>${esc(EX[it.ex].n)}</b><span class="tiny muted">${esc(gymItemLine(it,x.circuit&&it.sets))}</span></span>${I.right}</button>`).join('')}
+    ${(()=>{const wu=x.items.filter(z=>z.wu);return wu.length?`<button class="gitem" data-act="gym-warmup" data-v="${gymKey(x)}"><span class="gnum">🤸</span><span class="grow" style="min-width:0"><b>Daily warm-up</b><span class="tiny muted">${wu.filter(z=>z.sets).length} moves${wu.some(z=>z.mins)?' + 3 min bike':''}</span></span>${I.right}</button>`:''})()}
+    ${x.items.map((it,i)=>it.wu?'':`${x.circuit&&i===x.items.findIndex(z=>z.sets&&!z.wu)?`<div class="tiny" style="font-weight:700;margin:10px 0 2px">Then ${x.circuit} rounds of:</div>`:''}<button class="gitem" data-act="gym-ex" data-v="${it.ex}"><span class="gnum">${i+1-x.items.filter(z=>z.wu).length}</span><span class="grow" style="min-width:0"><b>${esc(EX[it.ex].n)}</b><span class="tiny muted">${esc(gymItemLine(it,x.circuit&&it.sets))}</span></span>${I.right}</button>`).join('')}
     <div class="row wrap" style="margin-top:12px;gap:8px"><button class="btn ${done?'':'primary'} grow gstart" data-act="gym-start" data-v="${key}">${I.play} ${cur?'Resume workout':done?'Do it again':'Start workout'}</button>${opts.extra||''}</div></div>`;
 }
 function gymHomePanel(){
@@ -2109,6 +2139,12 @@ function gymExSheet(k){
     <div class="sheet-foot">${h.length?`<button class="btn danger left" data-act="gym-ex-clear" data-v="${k}">${I.trash} Clear history</button>`:''}<button class="btn primary" data-act="close-modal">Close</button></div>`,{type:'gymex',k});
 }
 const shortD=s=>{const d=parseYmd(s);return d.getDate()+'/'+(d.getMonth()+1)};
+function gymWarmupSheet(key){
+  const x=gymByKey(key),wu=x?x.items.filter(z=>z.wu):[];
+  openModal(sheetHead('Daily warm-up')+`<p class="small muted" style="margin-top:0">About 8 minutes before every workout. Tap a move to see how to do it.</p>
+    ${wu.map((it,i)=>`<button class="gitem" data-act="gym-ex" data-v="${it.ex}"><span class="gnum">${i+1}</span><span class="grow"><b>${esc(EX[it.ex].n)}</b><span class="tiny muted">${esc(gymItemLine(it))}</span></span>${I.right}</button>`).join('')}
+    <div class="sheet-foot"><button class="btn primary" data-act="close-modal">Close</button></div>`,{type:'gymwu'});
+}
 function gymDaySheet(i){
   const x=gymSeq(+i); if(!x) return;
   openModal(sheetHead(x.label)+gymSessCard(x,{extra:x.seq!==gymPos()?`<button class="btn" data-act="gym-setpos" data-v="${x.seq}">Make this next</button>`:''}).replace('class="panel gsess"','class="gsess"')+`<div class="sheet-foot"><button class="btn" data-act="close-modal">Close</button></div>`,{type:'gymday'});
@@ -2144,7 +2180,8 @@ function gymSettingsSheet(){
 const GP={tick:0,lastPhase:null};
 function gymSteps(x){
   const st=[];
-  if(x.circuit){const f=x.items.findIndex(it=>it.sets);x.items.forEach((it,i)=>{if(!it.sets&&i<f)st.push({i,s:0})});for(let r=0;r<x.circuit;r++)x.items.forEach((it,i)=>{if(it.sets)st.push({i,s:r})});x.items.forEach((it,i)=>{if(!it.sets&&i>f)st.push({i,s:0})})}
+  const isC=it=>it.sets&&!it.wu;
+  if(x.circuit){const f=x.items.findIndex(isC);x.items.forEach((it,i)=>{if(!isC(it)&&i<f)st.push({i,s:0})});for(let r=0;r<x.circuit;r++)x.items.forEach((it,i)=>{if(isC(it))st.push({i,s:r})});x.items.forEach((it,i)=>{if(!isC(it)&&i>f)st.push({i,s:0})})}
   else x.items.forEach((it,i)=>{const n=it.sets||1;for(let s=0;s<n;s++)st.push({i,s})});
   return st;
 }
@@ -2196,7 +2233,7 @@ function gpRender(){
   el.innerHTML=`<div class="gp-wrap">
     <div class="gp-top"><button class="icon-btn" data-act="gp-close" aria-label="Close">${I.x}</button><div class="grow" style="min-width:0"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.emoji} ${esc(x.title)}</div><div class="tiny muted"><span id="gp-clock" class="num">${mmss((Date.now()-c.started)/1000)}</span> · step ${c.at+1} of ${steps.length} · ${doneN} done</div></div><button class="icon-btn" data-act="gp-discard" aria-label="Discard workout" title="Discard workout">${I.trash}</button><button class="btn sm primary" data-act="gp-finish">Finish</button></div>
     <div class="gp-bar"><i style="width:${prog/steps.length*100}%"></i></div>
-    <div class="gp-name"><div class="tiny muted" style="font-weight:700;letter-spacing:.06em">EXERCISE ${itemIdx} OF ${x.items.length}${x.circuit&&it.sets?' · ROUND '+(st.s+1)+' OF '+x.circuit:''}</div><h2>${esc(e.n)}</h2><div class="small muted">${esc(gymItemLine(it))}${lastSet&&t==='reps'&&lastSet.w?` · last time ${lastSet.w} kg × ${lastSet.r}`:''}</div></div>
+    <div class="gp-name"><div class="tiny muted" style="font-weight:700;letter-spacing:.06em">${it.wu?'WARM-UP '+itemIdx+' OF '+x.items.filter(z=>z.wu).length:'EXERCISE '+(itemIdx-x.items.filter(z=>z.wu).length)+' OF '+x.items.filter(z=>!z.wu).length+(x.circuit&&it.sets?' · ROUND '+(st.s+1)+' OF '+x.circuit:'')}</div><h2>${esc(e.n)}</h2><div class="small muted">${esc(gymItemLine(it))}${lastSet&&t==='reps'&&lastSet.w?` · last time ${lastSet.w} kg × ${lastSet.r}`:''}</div></div>
     ${NATIVE&&vidList()[vidKey(it.ex)]?exVideoHTML(it.ex):''}
     ${work}
     <details class="gcue"><summary>How to do it${EXDEMO[it.ex]?' · pictures':''}${NATIVE&&!vidList()[vidKey(it.ex)]&&!['time','interval'].includes(t)?' · add your video':''}</summary>${['time','interval'].includes(t)?'':exDemoHTML(it.ex,!!(NATIVE&&vidList()[vidKey(it.ex)]))}${exHowHTML(it.ex)}</details>
@@ -2249,7 +2286,7 @@ function gpSetDone(i,s){
     if(nx<0){Store.mark('gym');return gpFinish()}
     // rest: normal sets use the exercise's rest; in a circuit only after the last exercise of a round
     let rest=it.rest||0;
-    if(x.circuit&&it.sets){const cur=steps.findIndex(z=>z.i===i&&z.s===s),nz=steps[cur+1];rest=it.rest||(nz&&nz.s!==s?60:0)}
+    if(x.circuit&&it.sets&&!it.wu){const cur=steps.findIndex(z=>z.i===i&&z.s===s),nz=steps[cur+1];rest=it.rest||(nz&&nz.s!==s?60:0)}
     if(t==='time'||t==='interval') rest=0;
     c.at=nx; if(rest) c.restEnd=Date.now()+rest*1000;
   }
@@ -2507,6 +2544,7 @@ ui(async e=>{
     case 'gym-rem': gymSettingsRead(); S.gym.rem[v]=!S.gym.rem[v]; Store.mark('gym'); gymSettingsSheet(); break;
     case 'gym-ex': gymExSheet(v); break;
     case 'gym-day': gymDaySheet(v); break;
+    case 'gym-warmup': gymWarmupSheet(v); break;
     case 'gym-home': gymStart('h:'+v); break;
     case 'gym-skip': {const nx=gymNext();confirmBox('Skip '+nx.title+' and move to the next workout?','Skip',()=>{S.gym.pos[gymProg()]=nx.seq+1;Store.mark('gym');render();toast('Moved to '+gymNext().label)});break}
     case 'gym-setpos': S.gym.pos[gymProg()]=+v; Store.mark('gym'); closeModal(); render(); toast('Next workout: '+gymNext().label); break;
