@@ -138,6 +138,13 @@ button.cbar{cursor:pointer}
 .legend span{display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .legend i{width:10px;height:10px;border-radius:3px;flex:none}
 .splitrow{border-top:1px solid var(--line);padding:12px 2px}
+.gweekhero{display:flex;gap:16px;align-items:center;background:var(--surface);border:1px solid var(--accent);border-radius:18px;padding:14px 16px;margin-bottom:14px}
+.gwh-num{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:86px;padding:8px 6px;border-radius:14px;background:var(--accent);color:var(--accent-ink);line-height:1}
+.gwh-num span{font-size:.7rem;font-weight:800;letter-spacing:.14em}.gwh-num b{font-family:var(--display);font-size:2.9rem;font-weight:800;margin:2px 0}.gwh-num i{font-style:normal;font-size:.72rem;font-weight:700;opacity:.8}
+.gwh-stage{font-family:var(--display);font-size:1.3rem;font-weight:800;line-height:1.15}
+.gwh-day{font-size:.95rem;margin:4px 0 2px}
+.gwh-pill{display:inline-block;background:var(--accent);color:var(--accent-ink);font-weight:800;font-size:.75rem;border-radius:999px;padding:2px 9px;margin:2px 0}
+.gwh-bar{display:flex;gap:4px;margin-top:8px}.gwh-bar i{flex:1;height:6px;border-radius:3px;background:var(--surface2)}.gwh-bar i.on{background:var(--accent)}.gwh-bar i.cur{outline:2px solid var(--accent);outline-offset:1px}
 .gdone{display:flex;gap:10px;align-items:center;background:var(--soft);border-radius:14px;padding:10px 14px;margin-bottom:14px}.gdone>svg{width:20px;height:20px;color:var(--accent);flex:none}
 .gmotiv{display:flex;gap:10px;align-items:flex-start;background:var(--soft);border-radius:14px;padding:12px 14px;margin-bottom:14px;font-weight:600;line-height:1.4}
 .gmotiv span{font-size:1.2rem;line-height:1.1}
@@ -2031,6 +2038,17 @@ function gymHomePanel(){
   return `<div class="panel"><h3>🏠 At home or travelling?</h3><p class="small muted" style="margin:6px 0 10px">Do this instead of today’s gym workout: mostly running and cardio, with a little bodyweight work. Your gym workout stays next in line.</p>
     <div class="row wrap" style="gap:8px"><button class="btn grow" data-act="gym-home" data-v="run">🏃 Run + light exercise</button><button class="btn grow" data-act="gym-home" data-v="cardio">🚶 Cardio only</button></div></div>`;
 }
+// Big "Week N" banner: where you are in the plan, what stage, which day is next
+function gymWeekHero(nx){
+  if(!nx) return '';
+  const w=nx.week,prog=gymProg(),L=prog==='plan'?7:gymRotLen(),d=nx.seq%L+1;
+  const stage=prog==='five'?fiveLevel(w):null,name=prog==='five'?stage.name:prog==='plan'?GPHASE_N[GPHASE(w)]:'Gym’s circuit';
+  const detail=prog==='five'?`${stage.rounds} rounds · ${stage.fin} min finisher${stage.deload?' · lighter week':''}`:prog==='plan'&&gymDeload(w)?'Deload week':'';
+  const doneThisWeek=[...Array(L)].filter((_,i)=>gymSeqDone(nx.seq-nx.seq%L+i)).length;
+  return `<div class="gweekhero"><div class="gwh-num"><span>WEEK</span><b class="num">${w}</b>${prog==='trainer'?'':'<i>of 24</i>'}</div>
+    <div class="grow" style="min-width:0"><div class="gwh-stage">${esc(name)}</div><div class="gwh-day">Next up: <b>Day ${d} of ${L}</b></div>${detail?`<div class="tiny muted">${esc(detail)}</div>`:''}
+    <div class="gwh-bar" aria-label="${doneThisWeek} of ${L} done this week">${[...Array(L)].map((_,i)=>`<i class="${i<doneThisWeek?'on':''}${i===d-1?' cur':''}"></i>`).join('')}</div></div></div>`;
+}
 function gymTodayTab(){
   const n=todayS(),nx=gymNext(),nu=GNUTR(Math.max(1,Math.min(24,gymWeek(n)))),today=S.gym.logs.filter(l=>l.date===n);
   let main=today.length?`<div class="gdone">${I.check}<div class="grow"><b>Done today</b>${today.map(l=>`<div class="row small" style="gap:6px"><span class="grow">${l.home?'🏠 ':''}${esc(l.title)}</span><button class="btn sm ghost" data-act="gym-log-del" data-id="${l.id}">Undo</button></div>`).join('')}</div></div>`:'';
@@ -2043,7 +2061,7 @@ function gymTodayTab(){
   let strip='';
   if(nx){const cnt=gymRot()?gymRotLen():7,n0=nx.seq-nx.seq%cnt;
     strip=[...Array(cnt)].map((_,i)=>{const s=gymSeq(n0+i),d=gymSeqDone(n0+i);return `<button class="gday${n0+i===nx.seq?' now':''}${d?' done':''}" data-act="gym-day" data-v="${n0+i}"><span>D${i+1}</span><b>${d?'✓':s.emoji}</b></button>`}).join('');}
-  return `<div class="gmotiv"><span>💬</span><div>${esc(gymMotiv(n))}</div></div>
+  return `${gymWeekHero(nx)}<div class="gmotiv"><span>💬</span><div>${esc(gymMotiv(n))}</div></div>
   ${strip?`<div class="gweek" style="grid-template-columns:repeat(${gymRot()?gymRotLen():7},1fr)">${strip}</div>`:''}
   <div class="grid2"><div>${main}</div><div>
     ${nx?`<div class="panel"><h3>Tip</h3><p class="small muted" style="margin:6px 0 0">${esc(gymWeekTip(nx.week))}</p></div>`:''}
@@ -2231,7 +2249,7 @@ function gpRender(){
   }
   const rest=c.restEnd>Date.now();
   el.innerHTML=`<div class="gp-wrap">
-    <div class="gp-top"><button class="icon-btn" data-act="gp-close" aria-label="Close">${I.x}</button><div class="grow" style="min-width:0"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.emoji} ${esc(x.title)}</div><div class="tiny muted"><span id="gp-clock" class="num">${mmss((Date.now()-c.started)/1000)}</span> · step ${c.at+1} of ${steps.length} · ${doneN} done</div></div><button class="icon-btn" data-act="gp-discard" aria-label="Discard workout" title="Discard workout">${I.trash}</button><button class="btn sm primary" data-act="gp-finish">Finish</button></div>
+    <div class="gp-top"><button class="icon-btn" data-act="gp-close" aria-label="Close">${I.x}</button><div class="grow" style="min-width:0"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.emoji} ${esc(x.title)}</div>${x.home?'':`<div class="gwh-pill">${esc(x.label)}</div>`}<div class="tiny muted"><span id="gp-clock" class="num">${mmss((Date.now()-c.started)/1000)}</span> · step ${c.at+1} of ${steps.length} · ${doneN} done</div></div><button class="icon-btn" data-act="gp-discard" aria-label="Discard workout" title="Discard workout">${I.trash}</button><button class="btn sm primary" data-act="gp-finish">Finish</button></div>
     <div class="gp-bar"><i style="width:${prog/steps.length*100}%"></i></div>
     <div class="gp-name"><div class="tiny muted" style="font-weight:700;letter-spacing:.06em">${it.wu?'WARM-UP '+itemIdx+' OF '+x.items.filter(z=>z.wu).length:'EXERCISE '+(itemIdx-x.items.filter(z=>z.wu).length)+' OF '+x.items.filter(z=>!z.wu).length+(x.circuit&&it.sets?' · ROUND '+(st.s+1)+' OF '+x.circuit:'')}</div><h2>${esc(e.n)}</h2><div class="small muted">${esc(gymItemLine(it))}${lastSet&&t==='reps'&&lastSet.w?` · last time ${lastSet.w} kg × ${lastSet.r}`:''}</div></div>
     ${NATIVE&&vidList()[vidKey(it.ex)]?exVideoHTML(it.ex):''}
@@ -2327,7 +2345,7 @@ function gymTodayPanel(){
   gymInit();const n=todayS(),x=gymNext(),today=S.gym.logs.filter(l=>l.date===n);
   if(!x) return '';
   const cur=S.gym.cur&&!S.gym.cur.finished?gymByKey(S.gym.cur.key):null;
-  return `<div class="panel"><div class="panel-head"><h3>Gym</h3><a class="btn sm ghost" href="#gym">Open</a></div>
+  return `<div class="panel"><div class="panel-head"><h3>Gym</h3><span class="gwh-pill" style="font-size:.85rem;padding:3px 12px">Week ${x.week}${gymProg()==='trainer'?'':' of 24'}</span><a class="btn sm ghost" href="#gym" style="margin-left:auto">Open</a></div>
     <div class="gmotiv" style="margin-bottom:10px"><span>💬</span><div>${esc(gymMotiv(n))}</div></div>
     ${today.length?`<div class="small" style="margin-bottom:8px"><b class="pos">${I.check} Done today:</b> ${today.map(l=>esc(l.title)).join(', ')}</div>`:''}
     <div class="row"><span class="grow"><span class="tiny muted">${cur?'In progress':'Next workout · '+esc(x.label)}</span><div style="font-weight:700">${(cur||x).emoji} ${esc((cur||x).title)}</div><div class="tiny muted">${(cur||x).items.map(i=>EX[i.ex].n).slice(0,4).join(' · ')}${(cur||x).items.length>4?' …':''}</div></span><button class="btn primary sm" data-act="gym-start" data-v="${cur?S.gym.cur.key:x.seq}">${I.play} ${cur?'Resume':'Start'}</button></div>
