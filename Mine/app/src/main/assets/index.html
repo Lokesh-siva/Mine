@@ -166,6 +166,12 @@ button.cbar{cursor:pointer}
 .gchart .gpt{fill:var(--ink);opacity:.55}
 .gkey{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
 .gkey.tg{background:var(--muted)}.gkey.avg{background:var(--accent)}.gkey.pt{width:6px;height:6px;border-radius:50%;background:var(--ink);opacity:.55}
+.gdemo{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:#fff;border-radius:14px;padding:8px;margin-top:6px}
+.gdemo figure{margin:0;text-align:center}.gdemo img{width:100%;height:auto;max-height:200px;object-fit:contain;display:block}
+.gdemo figcaption{font-size:.7rem;font-weight:700;color:#555;letter-spacing:.05em;text-transform:uppercase}
+.gwatch{display:flex;align-items:center;gap:12px;background:var(--soft);color:var(--ink);border-radius:14px;padding:12px 14px;text-decoration:none;margin:10px 0}
+.gwatch>svg:first-child{width:22px;height:22px;color:var(--accent);flex:none}.gwatch>svg:last-child{width:16px;height:16px;color:var(--muted);margin-left:auto;flex:none}
+.gwatch b{display:block}.gwatch .tiny{color:var(--muted)}
 .ghow-h{font-size:.95rem;margin:14px 0 2px}.gavoid li::marker{content:'✕  ';color:var(--red)}
 .gcues{margin:6px 0 0;padding-left:20px;line-height:1.5}.gcues li{margin:3px 0}
 #gymplay{position:fixed;inset:0;z-index:56;display:none;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -1721,6 +1727,26 @@ const EXHOW={
 };
 // Cardio and timers have their own handling; everything else counts reps and weight
 const exType=k=>(EX[k]&&EX[k].type)||'reps';
+// Start and end pictures from Everkinetic (everkinetic.com by Greg Priday), CC BY-SA 4.0, stored in assets/ex.
+// The second value notes where the picture differs from how you do it.
+const EXDEMO={'back-squat':['0122'],'leg-press':['0127'],'close-pulldown':['0096'],'db-bench':['0055'],'bb-bench':['0042'],'incline-db-press':['0061'],'decline-press':['0052'],
+  'db-shoulder-press':['0038','Shown one arm at a time; press both together.'],'machine-shoulder-press':['0004','Shown with a barbell; the machine moves the same way.'],
+  'seated-row':['0025'],'rdl':['0118'],'db-rdl':['0118','Shown with a barbell; dumbbells move the same way.'],'walking-lunge':['0121'],'reverse-lunge':['0129','Shown with dumbbells; bodyweight works the same way.'],
+  'glute-bridge':['0109'],'assisted-pullup':['0087','Shown unassisted; the machine helps you up.'],'machine-chest-press':['0066'],'leg-curl':['0119'],'leg-extension':['0142'],
+  'lateral-raise':['0018'],'side-plank':['0113'],'triceps-pushdown':['0206'],'kickback':['0204'],'db-curl':['0224'],'bb-curl':['0211'],'preacher-curl':['0236'],'hammer-curl':['0227'],
+  'oh-triceps':['0192'],'calf-raise':['0282'],'leg-raise':['0021'],'push-up':['0077'],'bw-squat':['0130','Shown holding dumbbells; free squats use no weight.'],'goblet-squat':['0130','Shown with a dumbbell in each hand; hold one at your chest instead.']};
+// The exercise's page on hevyapp.com, where Hevy has one
+const EXHEVY={'goblet-squat':'how-to-goblet-squat','lat-pulldown':'how-to-lat-pulldown-cable','db-bench':'bench-press-dumbbell','bb-bench':'how-to-bench-press-barbell','incline-db-press':'how-to-incline-bench-press-dumbbell',
+  'decline-press':'how-to-decline-bench-press-dumbbell','chest-row':'chest-supported-incline-row-dumbbell','walking-lunge':'how-to-lunge-dumbbell','reverse-lunge':'reverse-lunge','glute-bridge':'how-to-glute-bridge',
+  'hip-thrust':'how-to-hip-thrust','assisted-pullup':'pull-up','lateral-raise':'how-to-lateral-raise-dumbbell','face-pull':'face-pull','farmers-carry':'farmers-walk','cable-crunch':'how-to-cable-crunch',
+  'triceps-pushdown':'how-to-triceps-rope-pushdown','kickback':'how-to-triceps-kickback','db-curl':'how-to-bicep-curl-dumbbell','bb-curl':'how-to-bicep-curl-barbell','hammer-curl':'how-to-hammer-curl-dumbbell',
+  'calf-raise':'how-to-calf-press-machine','leg-raise':'leg-raises','russian-twist':'russian-twists','jump-squat':'how-to-jump-squat'};
+function exDemoHTML(k){
+  const d=EXDEMO[k],h=EXHEVY[k]; if(!d&&!h) return '';
+  return `${d?`<div class="gdemo" role="img" aria-label="${esc(EX[k].n)}: start and end position"><figure><img src="ex/${d[0]}-relaxation.svg" alt=""><figcaption>Start</figcaption></figure><figure><img src="ex/${d[0]}-tension.svg" alt=""><figcaption>End</figcaption></figure></div>
+    ${d[1]?`<div class="tiny muted" style="margin-top:4px">${esc(d[1])}</div>`:''}<div class="tiny faint" style="margin-top:2px">Pictures: <a href="https://github.com/everkinetic/data" target="_blank" rel="noopener" style="color:inherit">Everkinetic</a> by Greg Priday, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener" style="color:inherit">CC BY-SA 4.0</a></div>`:''}
+    ${h?`<a class="gwatch" href="https://www.hevyapp.com/exercises/${h}/" target="_blank" rel="noopener">${I.play}<span><b>Watch the video on Hevy</b><span class="tiny">Opens hevyapp.com in your browser</span></span>${I.right}</a>`:''}`;
+}
 function exHowHTML(k){
   const e=EX[k],h=EXHOW[k]||{s:e.cues,x:[]};
   return `<h3 class="ghow-h">Step by step</h3><ol class="gcues">${h.s.map(c=>`<li>${esc(c)}</li>`).join('')}</ol>
@@ -1974,8 +2000,8 @@ function gymProgressTab(){
 function gymExSheet(k){
   const e=EX[k],h=gymHist(k).slice(-6).reverse(),b=gymBest(k);
   const chart=h.length>1?colChart(gymHist(k).slice(-12).map(x=>{const m=Math.max(...x.sets.map(s=>+s.w||0));return {k:x.date,label:shortD(x.date),v:m,on:true,tip:fmtDay(x.date)+': '+m+' kg'}}),{h:80}):'';
-  openModal(sheetHead(e.n)+`
-    <div class="row wrap" style="gap:6px;margin:4px 0"><span class="chip">${esc(e.m)}</span><span class="chip">${esc(e.eq)}</span></div>
+  openModal(sheetHead(e.n)+exDemoHTML(k)+`
+    <div class="row wrap" style="gap:6px;margin:10px 0 4px"><span class="chip">${esc(e.m)}</span><span class="chip">${esc(e.eq)}</span></div>
     ${exHowHTML(k)}
     ${b?`<h3 style="margin-top:12px;font-size:1rem">Your progress</h3><div class="small">Best: <b>${b.w} kg × ${b.r}</b> (${fmtDay(b.date)}) · est. 1RM ${e1rm(b.w,b.r)} kg</div>${chart}`:''}
     ${h.length?`<div style="margin-top:8px">${h.map(x=>`<div class="row small" style="padding:3px 0"><span style="min-width:80px" class="muted">${fmtDay(x.date)}</span><span class="grow">${x.sets.map(s=>exType(k)==='hold'?(s.r||0)+'s':(s.w?s.w+'×':'')+(s.r||'')).join(', ')}</span></div>`).join('')}</div>`:''}
@@ -2068,6 +2094,7 @@ function gpRender(){
     <div class="gp-top"><button class="icon-btn" data-act="gp-close" aria-label="Close">${I.x}</button><div class="grow" style="min-width:0"><div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.emoji} ${esc(x.title)}</div><div class="tiny muted"><span id="gp-clock" class="num">${mmss((Date.now()-c.started)/1000)}</span> · ${doneN}/${steps.length} done</div></div><button class="btn sm" data-act="gp-finish">Finish</button></div>
     <div class="gp-bar"><i style="width:${doneN/steps.length*100}%"></i></div>
     <div class="gp-name"><div class="tiny muted" style="font-weight:700;letter-spacing:.06em">EXERCISE ${itemIdx} OF ${x.items.length}${x.circuit&&it.sets?' · ROUND '+(st.s+1)+' OF '+x.circuit:''}</div><h2>${esc(e.n)}</h2><div class="small muted">${esc(gymItemLine(it))}${lastSet&&t==='reps'&&lastSet.w?` · last time ${lastSet.w} kg × ${lastSet.r}`:''}</div></div>
+    ${exDemoHTML(it.ex)}
     <details class="gcue"${st.s===0&&!['time','interval'].includes(t)?' open':''}><summary>How to do it</summary>${exHowHTML(it.ex)}</details>
     ${work}
     <div class="gp-nav"><button class="btn" data-act="gp-move" data-v="-1" ${c.at===0?'disabled':''}>${I.left} Back</button><div class="grow tiny muted" style="text-align:center">${nextIt?'Next: '+esc(EX[nextIt.ex].n):'Last one!'}</div><button class="btn" data-act="gp-move" data-v="1">${nextIt?'Skip':'Finish'} ${I.right}</button></div>

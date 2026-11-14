@@ -38,3 +38,7 @@ Open the `Mine` folder in Android Studio (Hedgehog or newer), let it sync, then 
 - `app/src/main/assets/index.html` is the whole app UI.
 - Native Android code (`app/src/main/java/com/mine/app`) schedules exact alarms with `AlarmManager.setAlarmClock`, rings with your phone's alarm tone, shows a full-screen alarm on the lock screen, and supports Done / Snooze / Dismiss from the notification. Alarms are rescheduled after a reboot.
 - Backups, CSV and calendar files are saved to `Downloads/Mine`.
+
+## Credits
+
+Exercise pictures in `app/src/main/assets/ex/` are from [Everkinetic](https://github.com/everkinetic/data) by Greg Priday, licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) (copy in `assets/ex/LICENSE-CC-BY-SA-4.0.md`). They are used unchanged.
