@@ -5,7 +5,7 @@ import android.graphics.Color;
 
 /** Accent colour picked in Settings, shared with the alarm screen, notifications and widget. */
 final class Theme {
-    static final int DEFAULT_ACCENT = 0xFF9B6BFF;
+    static final int DEFAULT_ACCENT = 0xFF3DDC84;
     private static final String PREFS = "mine_theme";
 
     private Theme() { }

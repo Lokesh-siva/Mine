@@ -1,6 +1,6 @@
 <resources>
-    <color name="bg">#FF07060B</color>
-    <color name="green">#FF9B6BFF</color>
-    <color name="surface">#FF07060B</color>
+    <color name="bg">#FF0A0F0C</color>
+    <color name="green">#FF3DDC84</color>
+    <color name="surface">#FF111915</color>
     <color name="ic_bg">#FF1E2120</color>
 </resources>
