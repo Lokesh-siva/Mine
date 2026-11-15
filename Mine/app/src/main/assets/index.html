@@ -145,31 +145,38 @@ button.cbar{cursor:pointer}
 .gwh-day{font-size:.95rem;margin:4px 0 2px}
 .gwh-pill{display:inline-block;background:var(--accent);color:var(--accent-ink);font-weight:800;font-size:.75rem;border-radius:999px;padding:2px 9px;margin:2px 0}
 .gwh-bar{display:flex;gap:4px;margin-top:8px}.gwh-bar i{flex:1;height:6px;border-radius:3px;background:var(--surface2)}.gwh-bar i.on{background:var(--accent)}.gwh-bar i.cur{outline:2px solid var(--accent);outline-offset:1px}
-.dash{border-radius:20px;padding:18px;margin:2px 0 14px;background:var(--surface);border:1px solid var(--line)}
-.dash-top{display:flex;align-items:flex-start;justify-content:space-between}
-.dash-date{font-size:.72rem;font-weight:700;letter-spacing:.14em;color:var(--faint)}
-.dash-hi{font-family:var(--display);font-size:1.5rem;font-weight:700;letter-spacing:-.02em;margin-top:2px}
-@media (min-width:900px){.dash-gear{display:none}}
-.dash-main{display:flex;align-items:center;gap:18px;margin-top:16px}
-.dash-ring{position:relative;width:116px;height:116px;flex:none}
-.dash-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
-.dash-track{fill:none;stroke:var(--surface2);stroke-width:9}
-.dash-arc{fill:none;stroke:var(--accent);stroke-width:9;stroke-linecap:round;transition:stroke-dasharray .6s ease}
-.dash-ring>div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.dash-ring b{font-family:var(--display);font-size:2.1rem;font-weight:700;line-height:1;letter-spacing:-.04em}
-.dash-ring span{font-size:.7rem;color:var(--muted);font-weight:600;margin-top:2px}
-.dash-stats{flex:1;min-width:0;display:grid;gap:9px}
-.dash-stat{display:flex;align-items:center;gap:9px;text-decoration:none;color:var(--ink);min-width:0}
-.dash-stat i{width:6px;height:6px;border-radius:50%;background:var(--accent);flex:none}
-.dash-stat b{display:block;font-size:.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dash-stat .tiny{display:block;line-height:1.1}
-.dash-msg{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:.86rem;color:var(--muted)}
-.qa{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 18px}
-.qa-btn{display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:0;color:var(--muted);font-size:.76rem;font-weight:600;padding:0}
-.qa-btn span{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line);color:var(--ink)}
-.qa-btn span svg{width:21px;height:21px}
-.qa-btn.on span{color:var(--accent)}
-.qa-btn:active span{transform:scale(.94)}
+.tday{max-width:640px;margin:0 auto}
+.tday-head{display:flex;align-items:center;gap:12px;margin:6px 0 4px}
+.tday-date{font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.tday-hi{font-family:var(--display);font-size:1.9rem;font-weight:700;letter-spacing:-.03em;line-height:1.1;margin-top:2px}
+.tday-ring{position:relative;width:52px;height:52px;flex:none}
+.tday-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.tr-track{fill:none;stroke:var(--surface2);stroke-width:4}
+.tr-arc{fill:none;stroke:var(--accent);stroke-width:4;stroke-linecap:round}
+.tday-ring b{position:absolute;inset:0;display:grid;place-items:center;font-size:.85rem;font-weight:700}
+@media (min-width:900px){.tday-gear{display:none}}
+.tday-sum{color:var(--muted);font-size:.92rem;margin:6px 0 16px}
+.tday-qa{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-bottom:22px}
+.tday-qa::-webkit-scrollbar{display:none}
+.tday-qa .chip{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;color:var(--ink)}
+.tday-qa .chip svg{width:15px;height:15px;color:var(--accent)}
+.tsec{margin-bottom:26px}
+.tsec-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.tsec-h span{font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.tsec-h a{font-size:.82rem;font-weight:600;text-decoration:none}
+.tday-add{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line);padding:2px 0 6px;margin-bottom:4px}
+.tday-add input{flex:1;min-width:0;background:none;border:0;outline:none;padding:8px 0;font-size:.95rem}
+.tday-add .icon-btn{color:var(--accent)}
+.tday .quick-hint:empty{display:none}
+.tsec .trow{background:none;border:0;border-bottom:1px solid var(--line);border-radius:0;margin:0;padding:11px 0}
+.tday-none{color:var(--faint);font-size:.9rem;padding:12px 0}
+.tday-more{display:inline-block;margin-top:8px;font-size:.85rem;font-weight:600;text-decoration:none}
+.tday-habits{display:flex;flex-wrap:wrap;gap:8px}
+.hchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:none;border-radius:999px;padding:8px 13px;font-size:.88rem;font-weight:600;color:var(--ink)}
+.hchip svg{width:14px;height:14px}
+.hchip.on{border-color:transparent;background:var(--soft);color:var(--accent)}
+.tday-line{display:flex;align-items:center;gap:12px;padding:4px 0}
+.tday-line .pos svg{width:16px;height:16px;vertical-align:-3px}
 .gdone{display:flex;gap:10px;align-items:center;background:var(--soft);border-radius:14px;padding:10px 14px;margin-bottom:14px}.gdone>svg{width:20px;height:20px;color:var(--accent);flex:none}
 .gmotiv{display:flex;gap:10px;align-items:flex-start;background:var(--soft);border-radius:14px;padding:12px 14px;margin-bottom:14px;font-weight:600;line-height:1.4}
 .gmotiv span{font-size:1.2rem;line-height:1.1}
@@ -2393,17 +2400,6 @@ function gpFinishScreen(){
     <button class="btn primary" data-act="gp-done" style="width:100%;margin-top:10px;padding:14px">Done</button></div>`;
 }
 
-function gymTodayPanel(){
-  gymInit();const n=todayS(),x=gymNext(),today=S.gym.logs.filter(l=>l.date===n);
-  if(!x) return '';
-  const cur=S.gym.cur&&!S.gym.cur.finished?gymByKey(S.gym.cur.key):null;
-  return `<div class="panel"><div class="panel-head"><h3>Gym</h3><span class="gwh-pill" style="font-size:.85rem;padding:3px 12px">Week ${x.week}${gymProg()==='trainer'?'':' of 24'}</span><a class="btn sm ghost" href="#gym" style="margin-left:auto">Open</a></div>
-    <div class="gmotiv" style="margin-bottom:10px"><span>💬</span><div>${esc(gymMotiv(n))}</div></div>
-    ${today.length?`<div class="small" style="margin-bottom:8px"><b class="pos">${I.check} Done today:</b> ${today.map(l=>esc(l.title)).join(', ')}</div>`:''}
-    <div class="row"><span class="grow"><span class="tiny muted">${cur?'In progress':'Next workout · '+esc(x.label)}</span><div style="font-weight:700">${(cur||x).emoji} ${esc((cur||x).title)}</div><div class="tiny muted">${(cur||x).items.map(i=>EX[i.ex].n).slice(0,4).join(' · ')}${(cur||x).items.length>4?' …':''}</div></span><button class="btn primary sm" data-act="gym-start" data-v="${cur?S.gym.cur.key:x.seq}">${I.play} ${cur?'Resume':'Start'}</button></div>
-    <button class="btn sm ghost" data-act="gym-home" data-v="run" style="margin-top:8px;padding-left:0">🏠 At home today? Do a home workout</button>
-  </div>`;
-}
 
 /* ================= today ================= */
 function refreshBanner(){const b=$('#alarm-banner');if(b)b.outerHTML=alarmBanner()}
@@ -2432,49 +2428,32 @@ function todayScore(tasks,hs,hd){
   const scored=parts.filter(x=>x.v!=null);
   return {parts,score:scored.length?Math.round(scored.reduce((a,x)=>a+x.v,0)/scored.length*100):null};
 }
-function dashHero(greet,tasks,over,hs,hd,collect){
-  const d=new Date(),sc=todayScore(tasks,hs,hd),p=sc.score==null?0:sc.score,C=2*Math.PI*52;
-  const msg=sc.score==null?'Plan your day: add a task or a habit to start your score.':p>=100?'Everything done today. Brilliant.':p>=60?'Good going. Keep it up.':over?over+' overdue task'+(over>1?'s':'')+' waiting.':'Small steps count. Pick one thing and start.';
-  return `<div class="dash">
-    <div class="dash-top"><div><div class="dash-date">${WD[d.getDay()].toUpperCase()} · ${d.getDate()} ${MON[d.getMonth()].toUpperCase()}</div><div class="dash-hi">${greet}</div></div><a class="icon-btn dash-gear" href="#prefs" aria-label="Settings">${I.gear}</a></div>
-    <div class="dash-main">
-      <div class="dash-ring" role="img" aria-label="Today’s score ${sc.score==null?'not started':p+' percent'}">
-        <svg viewBox="0 0 120 120"><defs><linearGradient id="dashg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--accent)"/><stop offset="1" style="stop-color:var(--neon2,var(--accent))"/></linearGradient></defs>
-          <circle cx="60" cy="60" r="52" class="dash-track"/><circle cx="60" cy="60" r="52" class="dash-arc" style="stroke:var(--accent)" stroke-dasharray="${(C*p/100).toFixed(1)} ${C.toFixed(1)}"/></svg>
-        <div><b class="num">${sc.score==null?'–':p}</b><span>${sc.score==null?'today':'% today'}</span></div></div>
-      <div class="dash-stats">${sc.parts.map(x=>`<a href="${x.href}" class="dash-stat"><i style="opacity:${x.v==null?.3:.35+.65*x.v}"></i><span class="grow"><span class="tiny muted">${x.label}</span><b>${esc(x.text)}</b></span></a>`).join('')}
-        ${modOn('carpool')&&collect>0?`<a href="#carpool" class="dash-stat"><i style="opacity:.6"></i><span class="grow"><span class="tiny muted">Carpool</span><b>${inr(collect)} to collect</b></span></a>`:''}</div>
-    </div>
-    <div class="dash-msg">${esc(msg)}</div>
-  </div>`;
-}
-function dashActions(){
-  const a=[modOn('tasks')&&['new-task','',I.tasks,'Task'],modOn('money')&&['tx-new','expense',I.money,'Expense'],modOn('gym')&&['gym-start','',I.play,'Workout'],modOn('gym')&&['gym-weigh','',I.scale,'Weight'],modOn('habits')&&['go-habits','',I.habits,'Habits']].filter(Boolean).slice(0,4);
-  return a.length?`<div class="qa">${a.map(([act,v,ic,l],i)=>`<button class="qa-btn${i===0?' on':''}" data-act="${act}" ${v?`data-v="${v}"`:''}><span>${ic}</span>${l}</button>`).join('')}</div>`:'';
-}
+// Today: one quiet column. Date and score, one summary line, quick actions, then only what needs doing today.
 function viewToday(){
   const d=new Date(), n=todayS(), h=d.getHours();
   const greet=h<5?'Working late':h<12?'Good morning':h<17?'Good afternoon':'Good evening';
-  const tasks=sortTasks(selTasks('today')), over=tasks.filter(isOver).length;
+  const tasks=sortTasks(selTasks('today'));
   const hs=S.habits.filter(x=>!x.archived&&(scheduled(x,d)||x.freq==='weekly')), hd=hs.filter(x=>doneOn(x,n)).length;
-  const ym=n.slice(0,7), spent=r2(monthTx(ym).filter(t=>t.type==='expense').reduce((a,t)=>a+ +t.amount,0));
-  const o=owed(), collect=r2(Object.values(o).filter(v=>v>0).reduce((a,v)=>a+v,0));
-  const next=upcomingAlarms(Date.now(),Date.now()+36*3600000).filter(a=>!A.fired[a.key]).slice(0,6);
-  const recent=S.txns.filter(t=>t.type==='expense').sort((a,b)=>a.date===b.date?(b.created||0)-(a.created||0):a.date<b.date?1:-1).slice(0,5);
-  return `${dashHero(greet,tasks,over,hs,hd,collect)}
-  ${dashActions()}
-  ${alarmBanner()}
-  ${modOn('money')?smsBanner():''}
-  <div class="grid2"><div>
-    ${modOn('tasks')?`<div class="panel"><div class="panel-head"><h3>Today’s tasks</h3><a class="btn sm ghost" href="#tasks" data-act="goto-today-tasks">All tasks</a></div>
-      <div class="quick"><input id="quick" placeholder="Add a task, e.g. Call bank 4pm" autocomplete="off" data-date="${n}" aria-label="Add a task for today"><button class="btn primary sm" data-act="quick-add">Add</button></div><div class="quick-hint" id="quick-hint"></div>
-      ${tasks.map(t=>taskRow(t)).join('')||'<div class="empty">All clear for today.</div>'}</div>`:''}
-    <div class="panel"><div class="panel-head"><h3>Next alarms</h3></div>${next.map(a=>`<div class="row" style="padding:6px 0"><span class="num" style="font-weight:700;min-width:86px">${ymd(a.at)===n?'':(ymd(a.at)===ymd(addDays(d,1))?'Tmrw ':'')}${fmtTime(hhmm(a.at))}</span><span class="grow">${esc(a.title)}</span><span class="tiny muted">${a.kind==='habit'?'Habit':a.kind==='card'?'Card':a.kind==='gym'?'Gym':'Task'}</span></div>`).join('')||'<div class="empty">No alarms in the next 36 hours.</div>'}</div>
-  </div><div>
-    ${modOn('gym')?gymTodayPanel():''}
-    ${modOn('habits')?`<div class="panel"><div class="panel-head"><h3>Habits</h3><a class="btn sm ghost" href="#habits">Open</a></div>${hs.map(x=>habitRow(x,true)).join('')||`<div class="empty">No habits yet. <a href="#habits">Add one</a>.</div>`}</div>`:''}
-    ${modOn('money')?`<div class="panel flush"><div class="panel-head"><h3>Recent spending</h3><button class="btn sm" data-act="tx-new" data-v="expense">${I.plus} Expense</button></div>${recent.map(t=>{const a=acctById(t.acc);return `<div class="txrow" data-act="tx-edit" data-id="${t.id}"><div class="txicon">${esc(CAT_ICON[t.cat]||'•')}</div><div class="grow"><div style="font-weight:600">${esc(t.note||t.cat)}</div><div class="tiny muted">${fmtDay(t.date)}${a?' · '+esc(a.name):''}</div></div><div class="txamt num neg">${inr(t.amount)}</div></div>`}).join('')||'<div class="empty">Nothing logged yet.</div>'}</div>`:''}
-  </div></div>`;
+  const sc=todayScore(tasks,hs,hd), p=sc.score==null?0:sc.score, C=2*Math.PI*22;
+  const summary=sc.parts.map(x=>x.k==='tasks'?(x.v==null?'No tasks due':x.text.replace(' done','').replace(' / ',' of ')+' tasks'):x.k==='habits'?(x.v==null?'':x.text.replace(' checked in','').replace(' / ',' of ')+' habits'):x.k==='money'?x.text.split(' · ')[0]+' today':'').filter(Boolean).join(' · ');
+  const acts=[modOn('tasks')&&['new-task','','Task'],modOn('money')&&['tx-new','expense','Expense'],modOn('gym')&&['gym-start','','Workout'],modOn('gym')&&['gym-weigh','','Weight']].filter(Boolean);
+  const sec=(t,link,body)=>`<section class="tsec"><div class="tsec-h"><span>${t}</span>${link||''}</div>${body}</section>`;
+  let html=`<div class="tday">
+  <div class="tday-head"><div class="grow"><div class="tday-date">${WD[d.getDay()]} · ${d.getDate()} ${MON[d.getMonth()]}</div><h1 class="tday-hi">${greet}</h1></div>
+    ${sc.score==null?'':`<div class="tday-ring" role="img" aria-label="Today ${p} percent done"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="22" class="tr-track"/><circle cx="26" cy="26" r="22" class="tr-arc" stroke-dasharray="${(C*p/100).toFixed(1)} ${C.toFixed(1)}"/></svg><b class="num">${p}</b></div>`}
+    <a class="icon-btn tday-gear" href="#prefs" aria-label="Settings">${I.gear}</a></div>
+  ${summary?`<div class="tday-sum">${esc(summary)}</div>`:''}
+  ${acts.length?`<div class="tday-qa">${acts.map(([a,v,l])=>`<button class="chip" data-act="${a}" ${v?`data-v="${v}"`:''}>${a==='gym-start'?I.play:I.plus} ${l}</button>`).join('')}</div>`:''}
+  ${alarmBanner()}${modOn('money')?smsBanner():''}`;
+  if(modOn('tasks')){const more=tasks.length-6;
+    html+=sec('Tasks',`<a href="#tasks" data-act="goto-today-tasks">All</a>`,`<div class="tday-add"><input id="quick" placeholder="Add a task for today" autocomplete="off" data-date="${n}" aria-label="Add a task for today"><button class="icon-btn" data-act="quick-add" aria-label="Add">${I.plus}</button></div><div class="quick-hint" id="quick-hint"></div>
+      ${tasks.slice(0,6).map(t=>taskRow(t)).join('')||'<div class="tday-none">Nothing due. Enjoy the day.</div>'}${more>0?`<a class="tday-more" href="#tasks" data-act="goto-today-tasks">+${more} more</a>`:''}`)}
+  if(modOn('habits')&&hs.length) html+=sec('Habits',`<a href="#habits">All</a>`,`<div class="tday-habits">${hs.map(x=>{const on=doneOn(x,n);return `<button class="hchip${on?' on':''}" data-act="h-check" data-id="${x.id}" aria-pressed="${on}">${esc(x.icon||'✓')} ${esc(x.name)}${on?' '+I.check:''}</button>`}).join('')}</div>`);
+  if(modOn('gym')&&S.gym){const done=S.gym.logs.filter(l=>l.date===n),nx=gymNext(),cur=S.gym.cur&&!S.gym.cur.finished?gymByKey(S.gym.cur.key):null,x=cur||nx;
+    if(x) html+=sec('Gym',`<a href="#gym">Open</a>`,`<div class="tday-line"><span class="grow">${done.length?`<span class="pos">${I.check}</span> ${esc(done[0].title)} done`:`${x.emoji} ${esc(x.title)} <span class="muted">· ${esc(cur?'in progress':x.label)}</span>`}</span>${done.length?'':`<button class="chip" data-act="gym-start" data-v="${cur?S.gym.cur.key:x.seq}">${cur?'Resume':'Start'}</button>`}</div>`)}
+  const al=upcomingAlarms(Date.now(),Date.now()+36*3600000).filter(a=>!A.fired[a.key])[0];
+  if(al) html+=sec('Next alarm','',`<div class="tday-line"><span class="num" style="font-weight:600">${ymd(al.at)===n?'':(ymd(al.at)===ymd(addDays(d,1))?'Tomorrow ':fmtDay(ymd(al.at))+' ')}${fmtTime(hhmm(al.at))}</span><span class="grow muted" style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(al.title)}</span></div>`);
+  return html+'</div>';
 }
 
 /* ================= settings ================= */
