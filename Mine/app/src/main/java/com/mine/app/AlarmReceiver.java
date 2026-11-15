@@ -30,6 +30,8 @@ public class AlarmReceiver extends BroadcastReceiver {
         if (Intent.ACTION_BOOT_COMPLETED.equals(action) || Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) {
             AlarmScheduler.rescheduleAll(c);
             ExpenseWatch.scheduleAll(c);
+            Fasting.schedule(c);
+            Fasting.refresh(c);
             return;
         }
         String json = in.getStringExtra("json");

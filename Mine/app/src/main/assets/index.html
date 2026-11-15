@@ -156,6 +156,7 @@ button.cbar{cursor:pointer}
 .tday-ring b{position:absolute;inset:0;display:grid;place-items:center;font-size:.85rem;font-weight:700}
 @media (min-width:900px){.tday-gear{display:none}}
 .tday-sum{color:var(--muted);font-size:.92rem;margin:6px 0 16px}
+.tday-fast{display:inline-block;margin:-8px 0 16px;font-size:.88rem;font-weight:600;color:var(--accent);text-decoration:none;background:var(--soft);border-radius:999px;padding:6px 12px}
 .tday-qa{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-bottom:22px}
 .tday-qa::-webkit-scrollbar{display:none}
 .tday-qa .chip{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;color:var(--ink)}
@@ -516,6 +517,7 @@ function syncNative(){
     const list=upcomingAlarms(now+1000,now+14*86400000).slice(0,400).map(a=>({key:a.key,at:a.at.getTime(),title:a.title,body:a.sub||'',kind:a.kind,id:a.id||'',snooze:+S.settings.snooze||10}));
     if(F.running&&F.end>now) list.push({key:'focus@'+F.end,at:F.end,title:F.mode==='focus'?'Focus session done':'Break is over',body:'Focus timer',kind:'focus',id:'',snooze:5});
     window.MineNative.setAlarms(JSON.stringify(list));
+    try{window.MineNative.setFasting(JSON.stringify(Object.assign({},fastCfg(),fastLines())))}catch(e){}
   }catch(e){console.warn(e)}},400);
 }
 function nativeStatus(){try{return JSON.parse(window.MineNative.alarmStatus())}catch(e){return {notif:true,exact:true,fullscreen:true}}}
@@ -566,7 +568,7 @@ const Store={db:null,uid:null,timers:{},chain:{},
     this.chain[n]=(this.chain[n]||Promise.resolve()).then(()=>ref.set(JSON.parse(JSON.stringify(data)))).then(()=>setSync('ok')).catch(e=>{console.warn('sync',n,e);setSync('err')});
   }
 };
-function defaultsSettings(){return {sound:'chime',allDayTime:'09:00',snooze:10,budget:0,theme:'system',accent:'#3DDC84',missedOn:true,missedTime:'09:00',upi:'',focusMin:25,shortMin:5,longMin:15}}
+function defaultsSettings(){return {fast:{on:false,start:'20:00',end:'10:00',apps:[]},sound:'chime',allDayTime:'09:00',snooze:10,budget:0,theme:'system',accent:'#3DDC84',missedOn:true,missedTime:'09:00',upi:'',focusMin:25,shortMin:5,longMin:15}}
 function applyDoc(n,d){
   if(n==='settings') S.settings=Object.assign(defaultsSettings(),d.settings||{});
   else if(n==='money'){S.accounts=d.accounts||[];S.cats=d.cats||S.cats;S.rules=d.rules||S.rules||[];S.mcat=d.mcat||S.mcat||{}}
@@ -697,6 +699,49 @@ function modulesPanel(){
   return `<div class="panel"><h3>Modules</h3><p class="small muted" style="margin-top:0">Choose which modules show in the tab bar and their order. Switched-off modules keep their data and stop their reminders.</p>
     ${o.map((k,i)=>{const r=ROUTES.find(x=>x[0]===k),en=modOn(k);return `<div class="row modrow" style="padding:6px 0;gap:6px"><span class="txicon" style="${en?'':'opacity:.4'}">${r[2]}</span><span class="grow" style="font-weight:600;${en?'':'opacity:.5'}">${r[1]}</span><button class="icon-btn" data-act="mod-move" data-v="${k}" data-d="-1" aria-label="Move ${r[1]} up" ${i?'':'disabled style="visibility:hidden"'}>↑</button><button class="icon-btn" data-act="mod-move" data-v="${k}" data-d="1" aria-label="Move ${r[1]} down" ${i<o.length-1?'':'disabled style="visibility:hidden"'}>↓</button><button class="btn sm${en?' primary':''}" style="min-width:52px" data-act="mod-toggle" data-v="${k}" ${en&&on===1?'disabled':''}>${en?'On':'Off'}</button></div>`}).join('')}
     ${modOn('today')?'':'<p class="tiny muted" style="margin:8px 0 0">With Today off, Settings gets its own tab.</p>'}</div>`;
+}
+/* ----- fasting window: silent countdown notification and paused apps (Android app) ----- */
+const fastCfg=()=>Object.assign({on:false,start:'20:00',end:'10:00',apps:[]},S.settings.fast||{});
+// Gym and weight line shown on the fasting notification and block screen
+function fastLines(){
+  const o={gym:'',weight:''};
+  if(modOn('gym')&&S.gym){const nx=gymNext();o.gym=(nx?nx.label.replace(/ · Day \d+$/,'')+' · ':'')+S.gym.logs.length+' workout'+(S.gym.logs.length===1?'':'s');
+    const b=S.gym.body.filter(x=>x.w).sort((a,c)=>a.date<c.date?-1:1),last=b[b.length-1];
+    if(last){const d=r2(S.gym.startW-last.w);o.weight=(d>0?'−':'+')+Math.abs(d)+' kg since start'}}
+  return o;
+}
+// The window running now (works in the browser too)
+function fastNow(){
+  const f=fastCfg(); if(!f.on) return null;
+  const mn=t=>{const [h,m]=t.split(':').map(Number);return h*60+m},len=((mn(f.end)-mn(f.start))%1440+1440)%1440; if(!len) return null;
+  const now=new Date();
+  for(let back=0;back<=1;back++){const st=new Date(now.getFullYear(),now.getMonth(),now.getDate()-back,Math.floor(mn(f.start)/60),mn(f.start)%60);const en=new Date(st.getTime()+len*60000);if(now>=st&&now<en)return {start:st,end:en}}
+  return null;
+}
+function fastStatus(){if(!NATIVE)return {active:!!fastNow(),streak:0,guard:false,broken:false};try{return JSON.parse(window.MineNative.fastingStatus())}catch(e){return {active:false,streak:0,guard:false}}}
+const FOOD_APPS=/swiggy|zomato|zepto|blinkit|grofers|bigbasket|dunzo|eatsure|faasos|domino|mcdonald|kfc|pizza|magicpin|instamart|ubereats|eatfit|box8|behrouz|burger/i;
+function fastPanel(){
+  const f=fastCfg(),st=fastStatus(),w=fastNow(),apps=f.apps||[];
+  const left=w?Math.max(0,Math.round((w.end-Date.now())/60000)):0;
+  return `<div class="panel"><div class="panel-head"><h3>🌙 Fasting</h3><button class="btn sm ${f.on?'primary':''}" data-act="fast-toggle">${f.on?'On':'Off'}</button></div>
+    <p class="small muted" style="margin:0">${f.on?(w?(st.broken?'Today’s fast ended early.':`Fasting now · ${Math.floor(left/60)}h ${pad(left%60)}m left`)+(st.streak?` · 🔥 ${st.streak}-day streak`:''):`Next fast starts at ${fmtTime(f.start)}.`+(st.streak?` 🔥 ${st.streak}-day streak.`:'')):'A daily window with no food. A quiet notification counts down and shows your streak and gym progress, and the apps you pick stay closed.'}</p>
+    ${f.on?`<div class="frow" style="margin-top:4px"><div><label class="f" for="fs-start">Starts</label><input class="in" type="time" id="fs-start" value="${f.start}"></div><div><label class="f" for="fs-end">Ends</label><input class="in" type="time" id="fs-end" value="${f.end}"></div></div>
+    <div class="row" style="padding:12px 0 4px"><div class="grow"><div style="font-weight:600">Paused apps</div><div class="tiny muted">${apps.length?apps.length+' app'+(apps.length>1?'s':'')+' closed during your fast':'None yet. Pick food delivery apps, for example.'}</div></div><button class="btn sm" data-act="fast-apps">${apps.length?'Change':'Choose'}</button></div>
+    ${NATIVE&&apps.length&&!st.guard?`<div class="banner" style="margin:8px 0 0">${I.bell}<div class="grow small">To pause apps, turn on <b>Mine fasting guard</b> in Accessibility. It only notices which app opens and never reads your screen.</div><button class="btn sm" data-act="fast-guard">Turn on</button></div>`:''}
+    ${NATIVE&&apps.length&&st.guard?'<div class="tiny pos" style="margin-top:6px">Fasting guard is on.</div>':''}
+    ${w&&!st.broken?`<button class="btn sm ghost" data-act="fast-break" style="margin-top:8px;padding-left:0;color:var(--muted)">I ate, end today’s fast</button>`:''}`:''}
+    ${!NATIVE?'<p class="tiny muted" style="margin:8px 0 0">The notification and paused apps work in the Android app.</p>':''}
+  </div>`;
+}
+function fastAppsSheet(){
+  let list=[];try{list=JSON.parse(window.MineNative.launchableApps())||[]}catch(e){}
+  const sel=new Set(fastCfg().apps||[]);
+  list.sort((a,b)=>(FOOD_APPS.test(a.l+a.p)?0:1)-(FOOD_APPS.test(b.l+b.p)?0:1)||a.l.localeCompare(b.l));
+  const food=list.filter(a=>FOOD_APPS.test(a.l+a.p)),rest=list.filter(a=>!FOOD_APPS.test(a.l+a.p));
+  const row=a=>`<label class="check" style="padding:6px 0"><input type="checkbox" class="fast-app" value="${esc(a.p)}" ${sel.has(a.p)?'checked':''}> ${esc(a.l)}</label>`;
+  openModal(sheetHead('Apps to pause')+`<p class="small muted" style="margin-top:0">These stay closed during your fast. Opening one shows how long is left instead.</p>
+    ${list.length?`${food.length?`<h3 style="font-size:.85rem;margin:10px 0 2px" class="muted">Food delivery</h3>${food.map(row).join('')}`:''}<h3 style="font-size:.85rem;margin:14px 0 2px" class="muted">All apps</h3>${rest.map(row).join('')}`:'<div class="empty">Your apps show here in the Android app.</div>'}
+    <div class="sheet-foot"><button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" data-act="fast-apps-save">Save</button></div>`,{type:'fastapps'});
 }
 function themePanel(){
   const cur=(S.settings.accent||'#3DDC84').toUpperCase(), known=ACCENTS.some(([h])=>h===cur);
@@ -2443,6 +2488,7 @@ function viewToday(){
     ${sc.score==null?'':`<div class="tday-ring" role="img" aria-label="Today ${p} percent done"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="22" class="tr-track"/><circle cx="26" cy="26" r="22" class="tr-arc" stroke-dasharray="${(C*p/100).toFixed(1)} ${C.toFixed(1)}"/></svg><b class="num">${p}</b></div>`}
     <a class="icon-btn tday-gear" href="#prefs" aria-label="Settings">${I.gear}</a></div>
   ${summary?`<div class="tday-sum">${esc(summary)}</div>`:''}
+  ${(()=>{const w=fastNow(),st=w?fastStatus():null;if(!w||st.broken)return '';const m=Math.max(0,Math.round((w.end-Date.now())/60000));return `<a class="tday-fast" href="#prefs">🌙 Fasting · ${Math.floor(m/60)}h ${pad(m%60)}m left${st.streak?` · 🔥 ${st.streak}`:''}</a>`})()}
   ${acts.length?`<div class="tday-qa">${acts.map(([a,v,l])=>`<button class="chip" data-act="${a}" ${v?`data-v="${v}"`:''}>${a==='gym-start'?I.play:I.plus} ${l}</button>`).join('')}</div>`:''}
   ${alarmBanner()}${modOn('money')?smsBanner():''}`;
   if(modOn('tasks')){const more=tasks.length-6;
@@ -2462,6 +2508,7 @@ function viewPrefs(){
   return `<div class="page-head"><div><h1>Settings</h1><div class="sub"><span class="sync"><i></i>${syncLabel()}</span></div></div></div>
   <div class="grid2"><div>
   ${modulesPanel()}
+  ${fastPanel()}
   ${themePanel()}
   ${NATIVE?lockPanel():""}
   ${NATIVE?watchPanel():""}
@@ -2718,6 +2765,11 @@ ui(async e=>{
     case 'accent': S.settings.accent=v; applyTheme(); Store.mark('settings'); render(); break;
     case 'theme': S.settings.theme=v; applyTheme(); Store.mark('settings'); render(); break;
     case 'native-perm': try{window.MineNative.openAlarmSettings(v)}catch(err){} break;
+    case 'fast-toggle': {const f=fastCfg();f.on=!f.on;S.settings.fast=f;Store.mark('settings');render();toast(f.on?'Fasting on: '+fmtTime(f.start)+' to '+fmtTime(f.end):'Fasting off');break}
+    case 'fast-apps': fastAppsSheet(); break;
+    case 'fast-apps-save': {const f=fastCfg();f.apps=$$('.fast-app').filter(x=>x.checked).map(x=>x.value);S.settings.fast=f;Store.mark('settings');closeModal();render();toast(f.apps.length?f.apps.length+' app'+(f.apps.length>1?'s':'')+' paused during fasts':'No apps paused');break}
+    case 'fast-guard': try{window.MineNative.openAccessibilitySettings();toast('Find “Mine fasting guard” and turn it on')}catch(err){} break;
+    case 'fast-break': confirmBox('End today’s fast? Paused apps open again and your streak restarts tomorrow.','End fast',()=>{try{window.MineNative.breakFast()}catch(err){}render();toast('Fast ended. Back at it tonight')}); break;
     case 'alarm-tone': try{window.MineNative.pickAlarmTone()}catch(err){toast('Alarm sounds can be changed in the Android app')} break;
     case 'test-alarm': try{window.MineNative.testAlarm(10);toast('Test alarm in 10 seconds. You can lock the phone.')}catch(err){} break;
     case 'app-lock': try{window.MineNative.setLock(v==='on')}catch(err){} render(); break;
@@ -2739,6 +2791,7 @@ document.addEventListener('change',e=>{
   const t=e.target;
   if(t.dataset.set){let v=t.value;if(t.type==='number')v=+v||0;S.settings[t.dataset.set]=v;Store.mark('settings');if(t.dataset.set==='budget')toast('Budget saved');if(t.dataset.set.endsWith('Min')&&!F.running)F.remaining=null}
   if(t.id==='accent-custom'){S.settings.accent=t.value.toUpperCase();applyTheme();Store.mark('settings');render()}
+  if((t.id==='fs-start'||t.id==='fs-end')&&t.value){const f=fastCfg();f[t.id==='fs-start'?'start':'end']=t.value;S.settings.fast=f;Store.mark('settings');render()}
   if(t.id==='sms-from'&&t.value){const d=parseYmd(t.value);smsSetFrom(d.getTime())}
   if(t.id==='t-rep') $('#t-int-wrap').classList.toggle('hide',t.value!=='custom');
   if(t.dataset.set==='snooze'||t.dataset.set==='allDayTime'||t.dataset.set==='missedTime')syncNative();
