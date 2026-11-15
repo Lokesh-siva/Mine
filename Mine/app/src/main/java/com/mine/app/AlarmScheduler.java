@@ -99,16 +99,16 @@ public class AlarmScheduler {
         } catch (Exception ignored) { }
     }
 
-    static void snooze(Context c, JSONObject o) {
+    static void snooze(Context c, JSONObject o, int min) {
         try {
             long now = System.currentTimeMillis();
-            int minutes = Math.max(1, o.optInt("snooze", 10));
+            int minutes = Math.max(1, min);
             JSONObject n = new JSONObject(o.toString());
             String base = o.getString("key");
             if (base.startsWith("snz:")) base = base.substring(4, Math.max(4, base.lastIndexOf(':')));
             n.put("key", "snz:" + base + ":" + now);
             n.put("at", now + minutes * 60000L);
-            n.put("body", "Snoozed " + minutes + " min");
+            n.put("body", minutes >= 60 ? "Snoozed " + (minutes / 60) + " hour" + (minutes >= 120 ? "s" : "") : "Snoozed " + minutes + " min");
             scheduleOne(c, n, true);
         } catch (Exception ignored) { }
     }

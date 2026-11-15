@@ -40,12 +40,9 @@ public class AlarmActivity extends Activity {
         if (Build.VERSION.SDK_INT >= 27) {
             setShowWhenLocked(true);
             setTurnScreenOn(true);
-            KeyguardManager km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
-            if (km != null) km.requestDismissKeyguard(this, null);
         } else {
             getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
-                    | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
-                    | WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
+                    | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
         }
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
@@ -56,8 +53,13 @@ public class AlarmActivity extends Activity {
             return;
         }
         nid = alarm.optString("key", "").hashCode();
-        String kind = alarm.optString("kind", "task");
+        KeyguardManager km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+        build(km == null || !km.isKeyguardLocked());
+    }
 
+    /** While the phone is locked, only the time shows; what the alarm is for appears after unlocking. */
+    private void build(boolean details) {
+        String kind = alarm.optString("kind", "task");
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER);
@@ -65,8 +67,7 @@ public class AlarmActivity extends Activity {
         int pad = dp(28);
         root.setPadding(pad, pad, pad, pad);
 
-        TextView label = text("⏰  Mine", 16, GREEN, true);
-        root.addView(label);
+        root.addView(text("⏰  Mine", 16, GREEN, true));
 
         String time = new SimpleDateFormat("h:mm a", Locale.getDefault())
                 .format(new Date(alarm.optLong("at", System.currentTimeMillis())));
@@ -74,11 +75,11 @@ public class AlarmActivity extends Activity {
         clock.setPadding(0, dp(18), 0, 0);
         root.addView(clock);
 
-        TextView title = text(alarm.optString("title", "Reminder"), 26, INK, true);
+        TextView title = text(details ? alarm.optString("title", "Reminder") : "Reminder", 26, INK, true);
         title.setPadding(0, dp(14), 0, 0);
         root.addView(title);
 
-        String body = alarm.optString("body", "");
+        String body = details ? alarm.optString("body", "") : "Unlock to see what it’s for";
         if (!body.isEmpty()) {
             TextView sub = text(body, 16, MUTED, false);
             sub.setPadding(0, dp(6), 0, 0);
@@ -88,22 +89,47 @@ public class AlarmActivity extends Activity {
         LinearLayout buttons = new LinearLayout(this);
         buttons.setOrientation(LinearLayout.VERTICAL);
         buttons.setGravity(Gravity.CENTER);
-        buttons.setPadding(0, dp(36), 0, 0);
+        buttons.setPadding(0, dp(30), 0, 0);
 
-        if ("task".equals(kind) || "habit".equals(kind)) {
-            buttons.addView(button("task".equals(kind) ? "Mark done" : "Check in", true, v -> {
+        boolean doneKind = "task".equals(kind) || "habit".equals(kind);
+        if (details && doneKind) {
+            buttons.addView(button("task".equals(kind) ? "Mark done" : "Check in", true, dp(260), v -> {
                 cancelNotification();
                 startActivity(AlarmReceiver.doneIntent(this, alarm.optString("key", ""), alarm.toString()));
                 finish();
             }));
         }
-        int snooze = alarm.optInt("snooze", 10);
-        buttons.addView(button("Snooze " + snooze + " min", !("task".equals(kind) || "habit".equals(kind)), v -> {
-            cancelNotification();
-            AlarmScheduler.snooze(this, alarm);
-            finish();
-        }));
-        buttons.addView(button("Dismiss", false, v -> {
+        if (!details) {
+            buttons.addView(button("Show details", false, dp(260), v -> {
+                KeyguardManager km = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+                if (km == null || Build.VERSION.SDK_INT < 26) { build(true); return; }
+                km.requestDismissKeyguard(this, new KeyguardManager.KeyguardDismissCallback() {
+                    @Override
+                    public void onDismissSucceeded() {
+                        build(true);
+                    }
+                });
+            }));
+        }
+
+        TextView snoozeLabel = text("Snooze", 14, MUTED, true);
+        snoozeLabel.setPadding(0, dp(14), 0, dp(2));
+        buttons.addView(snoozeLabel);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        for (int min : AlarmReceiver.SNOOZE_MIN) {
+            String label = min >= 60 ? (min / 60) + " hour" : min + " min";
+            Button b = button(label, !(details && doneKind) && min == AlarmReceiver.SNOOZE_MIN[0], dp(96), v -> {
+                cancelNotification();
+                AlarmScheduler.snooze(this, alarm, min);
+                finish();
+            });
+            ((LinearLayout.LayoutParams) b.getLayoutParams()).setMargins(dp(4), dp(6), dp(4), dp(6));
+            row.addView(b);
+        }
+        buttons.addView(row);
+        buttons.addView(button("Dismiss", false, dp(260), v -> {
             cancelNotification();
             finish();
         }));
@@ -126,7 +152,7 @@ public class AlarmActivity extends Activity {
         return t;
     }
 
-    private Button button(String label, boolean primary, android.view.View.OnClickListener l) {
+    private Button button(String label, boolean primary, int width, android.view.View.OnClickListener l) {
         Button b = new Button(this);
         b.setText(label);
         b.setAllCaps(false);
@@ -143,7 +169,7 @@ public class AlarmActivity extends Activity {
         b.setBackground(bg);
         b.setStateListAnimator(null);
         b.setOnClickListener(l);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(260), dp(56));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(width, dp(56));
         lp.setMargins(0, dp(6), 0, dp(6));
         b.setLayoutParams(lp);
         return b;

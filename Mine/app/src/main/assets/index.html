@@ -1603,9 +1603,9 @@ function renderAlarm(){
   const a=Q[0], sn=S.settings.snooze||10;
   const kindL={task:'Task reminder',habit:'Habit reminder',card:'Credit card bill',focus:'Focus timer',gym:'Gym'}[a.kind]||'Reminder';
   let acts='';
-  if(a.kind==='task') acts=`<button class="main" data-act="al-done">Mark done</button><button data-act="al-snooze" data-v="${sn}">Snooze ${sn} min</button><button data-act="al-snooze" data-v="60">1 hour</button><button data-act="al-dismiss">Dismiss</button>`;
-  else if(a.kind==='habit') acts=`<button class="main" data-act="al-hdone">Check in</button><button data-act="al-snooze" data-v="${sn}">Snooze ${sn} min</button><button data-act="al-dismiss">Skip</button>`;
-  else if(a.kind==='gym') acts=`<button class="main" data-act="al-gym">Open Gym</button><button data-act="al-snooze" data-v="${sn}">Snooze ${sn} min</button><button data-act="al-dismiss">Dismiss</button>`;
+  if(a.kind==='task') acts=`<button class="main" data-act="al-done">Mark done</button><button data-act="al-snooze" data-v="5">Snooze 5 min</button><button data-act="al-snooze" data-v="30">30 min</button><button data-act="al-snooze" data-v="60">1 hour</button><button data-act="al-dismiss">Dismiss</button>`;
+  else if(a.kind==='habit') acts=`<button class="main" data-act="al-hdone">Check in</button><button data-act="al-snooze" data-v="5">Snooze 5 min</button><button data-act="al-snooze" data-v="30">30 min</button><button data-act="al-snooze" data-v="60">1 hour</button><button data-act="al-dismiss">Skip</button>`;
+  else if(a.kind==='gym') acts=`<button class="main" data-act="al-gym">Open Gym</button><button data-act="al-snooze" data-v="5">Snooze 5 min</button><button data-act="al-snooze" data-v="30">30 min</button><button data-act="al-snooze" data-v="60">1 hour</button><button data-act="al-dismiss">Dismiss</button>`;
   else if(a.kind==='card') acts=`<button class="main" data-act="al-money">Open Money</button><button data-act="al-snooze" data-v="240">Remind in 4 hours</button><button data-act="al-dismiss">Dismiss</button>`;
   else acts=`<button class="main" data-act="al-dismiss">OK</button>${F.mode&&a.kind==='focus'?`<button data-act="al-fnext">Start ${F.mode==='focus'?'focus':'break'}</button>`:''}`;
   el.innerHTML=`${bigBell}<div class="when num">${fmtTime(hhmm(a.at))}</div><div class="what">${esc(a.title)}</div><div class="kind">${kindL}${a.missed?' · missed while Mine was closed':''}${a.sub?' · '+esc(a.sub):''}</div><div class="acts">${acts}</div>${Q.length>1?`<div class="more">${Q.length-1} more reminder${Q.length>2?'s':''} waiting</div>`:''}<button data-act="al-silence" style="margin-top:14px;background:none;border:0;color:inherit;text-decoration:underline;font-weight:600">Silence sound</button>`;
@@ -2440,12 +2440,13 @@ function nativeAlarmPanel(){
   const st=nativeStatus(), S2=S.settings;
   const line=(ok,label,which)=>`<div class="row" style="padding:6px 0"><span class="grow">${label}</span>${ok?'<span class="pos small" style="font-weight:600">On</span>':`<button class="btn sm" data-act="native-perm" data-v="${which}">Turn on</button>`}</div>`;
   return `<div class="panel"><h3>Alarms</h3>
-    <p class="small muted">Alarms ring with your phone’s alarm tone, even when Mine is closed or the phone is locked.</p>
+    <p class="small muted">Alarms ring even when Mine is closed or the phone is locked. On a locked phone they show only the time and “Reminder”; unlock to see what it’s for. Snooze for 5 min, 30 min or 1 hour.</p>
+    <div class="row" style="padding:6px 0;gap:8px"><div class="grow" style="min-width:0"><div>Alarm sound</div><div class="tiny muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(()=>{try{return esc(window.MineNative.alarmToneName())}catch(e){return 'Phone’s alarm tone'}})()}</div></div><button class="btn sm" data-act="alarm-tone">Change</button></div>
     ${line(st.notif,'Notifications','notif')}${line(st.exact,'Exact alarms','exact')}${line(st.fullscreen,'Full-screen on lock screen','fullscreen')}
-    <div class="frow"><div><label class="f" for="s-allday">Ring time for tasks with no time</label><input class="in" type="time" id="s-allday" data-set="allDayTime" value="${S2.allDayTime}"></div><div><label class="f" for="s-snooze">Snooze (minutes)</label><input class="in" type="number" min="1" id="s-snooze" data-set="snooze" value="${S2.snooze}"></div></div>
+    <label class="f" for="s-allday">Ring time for tasks with no time</label><input class="in" type="time" id="s-allday" data-set="allDayTime" value="${S2.allDayTime}" style="max-width:160px">
     ${missedRow()}
     <button class="btn" data-act="test-alarm" style="margin-top:12px">${I.bell} Test alarm in 10 seconds</button>
-    <div class="tiny faint" style="margin-top:8px">To change the tone: Android Settings → Apps → Mine → Notifications → Alarms & reminders → Sound.</div>
+    <div class="tiny faint" style="margin-top:8px">Lock the phone after tapping Test to see the private lock-screen view.</div>
   </div>`;
 }
 window.nativeAlarmAction=o=>{
@@ -2465,6 +2466,7 @@ window.mineBack=()=>{
   return false;
 };
 window.nativeAddExpense=()=>{if($('#modal').classList.contains('open'))closeModal();openTx(null,'expense')};
+window.nativeToneChanged=ok=>{if(ok)toast('Alarm sound changed');if(route()==='prefs'&&!$('#modal').classList.contains('open'))render()};
 window.mineResume=()=>{syncNative();if(!$('#modal').classList.contains('open'))render()};
 
 /* ================= events ================= */
@@ -2648,6 +2650,7 @@ ui(async e=>{
     case 'accent': S.settings.accent=v; applyTheme(); Store.mark('settings'); render(); break;
     case 'theme': S.settings.theme=v; applyTheme(); Store.mark('settings'); render(); break;
     case 'native-perm': try{window.MineNative.openAlarmSettings(v)}catch(err){} break;
+    case 'alarm-tone': try{window.MineNative.pickAlarmTone()}catch(err){toast('Alarm sounds can be changed in the Android app')} break;
     case 'test-alarm': try{window.MineNative.testAlarm(10);toast('Test alarm in 10 seconds. You can lock the phone.')}catch(err){} break;
     case 'app-lock': try{window.MineNative.setLock(v==='on')}catch(err){} render(); break;
     case 'backup': {const pw=(document.getElementById('bk-pass')||{}).value||'';const txt=JSON.stringify(S,null,1);

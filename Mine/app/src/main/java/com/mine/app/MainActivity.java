@@ -11,6 +11,7 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.CancellationSignal;
 import android.provider.MediaStore;
+import android.media.RingtoneManager;
 import android.hardware.biometrics.BiometricPrompt;
 import android.view.WindowManager;
 import android.webkit.WebResourceResponse;
@@ -36,6 +37,7 @@ public class MainActivity extends Activity {
     private static final int FILE_REQ = 42;
     private static final int LOCK_REQ = 43;
     private static final int VIDEO_REQ = 44;
+    private static final int TONE_REQ = 45;
     private String videoKey = null;
     private boolean picking = false;
     static final int SMS_PERM_REQ = 8;
@@ -254,6 +256,23 @@ public class MainActivity extends Activity {
         flushPending();
     }
 
+    /** Android's own alarm-tone list; the choice is used for every alarm Mine rings. */
+    void pickAlarmTone() {
+        Intent i = new Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
+                .putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
+                .putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Alarm sound")
+                .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                .putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, AlarmReceiver.tone(this));
+        picking = true;
+        try {
+            startActivityForResult(i, TONE_REQ);
+        } catch (Exception e) {
+            picking = false;
+            runJs("window.nativeToneChanged&&window.nativeToneChanged(false)");
+        }
+    }
+
     /** Opens the gallery (or the camera) to choose a video for an exercise. */
     void pickVideo(String key, boolean camera) {
         Intent i;
@@ -331,6 +350,13 @@ public class MainActivity extends Activity {
             authing = false;
             if (resultCode == RESULT_OK) onUnlocked();
             else finish();
+            return;
+        }
+        if (requestCode == TONE_REQ) {
+            picking = false;
+            Uri u = resultCode == RESULT_OK && data != null ? data.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI) : null;
+            if (u != null) AlarmReceiver.setTone(this, u);
+            runJs("window.nativeToneChanged&&window.nativeToneChanged(" + (u != null) + ")");
             return;
         }
         if (requestCode == VIDEO_REQ) {

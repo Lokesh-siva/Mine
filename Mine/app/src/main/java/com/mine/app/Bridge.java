@@ -209,6 +209,16 @@ public class Bridge {
     }
 
     @JavascriptInterface
+    public void pickAlarmTone() {
+        activity.runOnUiThread(activity::pickAlarmTone);
+    }
+
+    @JavascriptInterface
+    public String alarmToneName() {
+        return AlarmReceiver.toneName(activity.getApplicationContext());
+    }
+
+    @JavascriptInterface
     public void pickVideo(String key, boolean camera) {
         activity.runOnUiThread(() -> activity.pickVideo(key, camera));
     }
