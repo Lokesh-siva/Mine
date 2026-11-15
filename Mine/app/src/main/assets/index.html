@@ -145,6 +145,31 @@ button.cbar{cursor:pointer}
 .gwh-day{font-size:.95rem;margin:4px 0 2px}
 .gwh-pill{display:inline-block;background:var(--accent);color:var(--accent-ink);font-weight:800;font-size:.75rem;border-radius:999px;padding:2px 9px;margin:2px 0}
 .gwh-bar{display:flex;gap:4px;margin-top:8px}.gwh-bar i{flex:1;height:6px;border-radius:3px;background:var(--surface2)}.gwh-bar i.on{background:var(--accent)}.gwh-bar i.cur{outline:2px solid var(--accent);outline-offset:1px}
+.dash{position:relative;border-radius:28px;padding:18px 18px 16px;margin:2px 0 14px;background:radial-gradient(120% 90% at 0% 0%,color-mix(in srgb,var(--accent) 30%,transparent),transparent 60%),radial-gradient(90% 80% at 100% 100%,color-mix(in srgb,var(--neon2,var(--accent)) 22%,transparent),transparent 60%),var(--surface);border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);box-shadow:0 20px 60px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06);overflow:hidden}
+.dash-top{display:flex;align-items:flex-start;justify-content:space-between}
+.dash-date{font-size:.72rem;font-weight:700;letter-spacing:.16em;color:var(--muted)}
+.dash-hi{font-family:var(--display);font-size:1.55rem;font-weight:700;letter-spacing:-.02em;margin-top:2px}
+@media (min-width:900px){.dash-gear{display:none}}
+.dash-main{display:flex;align-items:center;gap:16px;margin-top:14px}
+.dash-ring{position:relative;width:132px;height:132px;flex:none}
+.dash-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.dash-track{fill:none;stroke:rgba(255,255,255,.07);stroke-width:11}
+.dash-arc{fill:none;stroke:url(#dashg);stroke-width:11;stroke-linecap:round;filter:drop-shadow(0 0 6px var(--glow));transition:stroke-dasharray .6s ease}
+.dash-ring>div{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.dash-ring b{font-family:var(--display);font-size:2.4rem;font-weight:700;line-height:1;letter-spacing:-.04em;text-shadow:0 0 22px var(--glow)}
+.dash-ring span{font-size:.7rem;color:var(--muted);font-weight:600;margin-top:2px}
+.dash-stats{flex:1;min-width:0;display:grid;gap:8px}
+.dash-stat{display:flex;align-items:center;gap:9px;text-decoration:none;color:var(--ink);min-width:0}
+.dash-stat i{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--glow);flex:none}
+.dash-stat b{display:block;font-size:.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-stat .tiny{display:block;line-height:1.1}
+.dash-msg{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);font-size:.88rem;color:var(--muted)}
+.qa{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 16px}
+.qa-btn{display:flex;flex-direction:column;align-items:center;gap:7px;background:none;border:0;color:var(--muted);font-size:.78rem;font-weight:600;padding:0}
+.qa-btn span{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.045);border:1px solid var(--line);color:var(--ink)}
+.qa-btn span svg{width:22px;height:22px}
+.qa-btn.on span{background:var(--neon);color:var(--accent-ink);border-color:transparent;box-shadow:var(--glow-lg)}
+.qa-btn:active span{transform:scale(.94)}
 .gdone{display:flex;gap:10px;align-items:center;background:var(--soft);border-radius:14px;padding:10px 14px;margin-bottom:14px}.gdone>svg{width:20px;height:20px;color:var(--accent);flex:none}
 .gmotiv{display:flex;gap:10px;align-items:flex-start;background:var(--soft);border-radius:14px;padding:12px 14px;margin-bottom:14px;font-weight:600;line-height:1.4}
 .gmotiv span{font-size:1.2rem;line-height:1.1}
@@ -653,6 +678,7 @@ const I={
   play:ic('<path d="M7 4v16l13-8z"/>'), pause:ic('<path d="M7 4h3v16H7zM14 4h3v16h-3z"/>'),
   edit:ic('<path d="M4 20h4L19 9l-4-4L4 16z"/>'),
   gym:ic('<path d="M6.5 6.5v11M3.5 9v6M17.5 6.5v11M20.5 9v6M6.5 12h11"/>'),
+  scale:ic('<rect x="3" y="3" width="18" height="18" rx="5"/><path d="M8 10a4 4 0 0 1 8 0z"/><path d="M12 10l1.5-2"/>'),
   copy:ic('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>')
 };
 const LOGO=`<svg viewBox="0 0 108 108" aria-hidden="true"><rect width="108" height="108" rx="30" fill="#1E2120"/><path d="M40.23,29.10L42.62,27.84L45.14,26.83L47.74,26.06L50.42,25.54L53.13,25.27L55.87,25.25L58.60,25.49L61.31,25.97L63.96,26.71L66.54,27.69L69.02,28.91L71.39,30.35L73.61,32.01L75.68,33.87L77.57,35.92L79.26,38.13L80.75,40.50L82.02,42.99L83.05,45.60L83.84,48.29L84.38,51.05L84.66,53.86L84.68,56.68L84.45,59.50L83.95,62.28L83.20,65.02L82.21,67.68L80.96,70.23L79.49,72.67L77.80,74.97L75.89,77.10L73.80,79.05L71.54,80.80L69.09,82.31L66.52,83.58L63.85,84.60L61.09,85.38L58.27,85.91L55.42,86.17L52.55,86.17L49.69,85.90L46.88,85.38L44.12,84.59L41.44,83.56L38.87,82.29L36.43,80.78L34.14,79.06L32.02,77.14L30.08,75.03L28.34,72.75L26.82,70.32L25.53,67.76L24.48,65.09L23.67,62.34L23.13,59.52L22.84,56.67L22.82,53.80L23.06,50.95L23.57,48.12L24.33,45.36A2.20,2.20 0,0,1 28.51,46.72L27.86,49.09L27.43,51.52L27.22,53.97L27.24,56.43L27.48,58.88L27.95,61.30L28.64,63.67L29.54,65.96L30.65,68.16L31.96,70.24L33.45,72.20L35.12,74.02L36.94,75.67L38.91,77.15L41.01,78.44L43.21,79.53L45.51,80.42L47.88,81.09L50.30,81.54L52.75,81.77L55.22,81.77L57.67,81.55L60.09,81.10L62.46,80.43L64.76,79.55L66.97,78.45L69.06,77.17L71.06,75.72L72.93,74.10L74.64,72.31L76.18,70.37L77.53,68.30L78.70,66.10L79.66,63.80L80.40,61.42L80.93,58.98L81.23,56.49L81.30,53.98L81.14,51.48L80.75,48.99L80.13,46.54L79.29,44.16L78.24,41.86L76.97,39.66L75.51,37.58L73.86,35.65L72.03,33.86L70.05,32.25L67.92,30.83L65.66,29.60L63.30,28.58L60.85,27.78L58.34,27.21L55.77,26.86L53.18,26.76L50.58,26.88L48.00,27.25L45.45,27.84L42.96,28.66L40.54,29.69Z" style="fill:var(--accent)"/><path d="M58.64,33.17L60.38,33.50L62.09,34.00L63.76,34.64L65.37,35.42L66.92,36.32L68.39,37.35L69.78,38.50L71.08,39.76L72.28,41.13L73.36,42.58L74.33,44.13L75.18,45.75L75.89,47.43L76.47,49.17L76.91,50.96L77.21,52.78L77.36,54.62L77.37,56.47L77.23,58.32L76.94,60.16L76.50,61.97L75.93,63.74L75.21,65.47L74.36,67.13L73.37,68.73L72.26,70.25L71.03,71.68L69.69,73.00L68.24,74.22L66.70,75.33L65.08,76.31L63.37,77.16L61.61,77.87L59.78,78.40L57.91,78.78L56.02,79.02L54.11,79.10L52.21,79.03L50.31,78.82L48.44,78.45L46.61,77.94L44.82,77.28L43.08,76.49L41.42,75.56L39.83,74.50L38.34,73.32L36.94,72.02L35.65,70.62L34.47,69.12L33.41,67.53L32.49,65.87L31.70,64.13L31.05,62.34L30.54,60.50L30.18,58.63L29.96,56.74L29.90,54.83L29.99,52.93L30.23,51.04L30.62,49.17A2.10,2.10 0,0,1 34.69,50.19L34.37,51.73L34.17,53.29L34.10,54.86L34.15,56.43L34.33,58.00L34.63,59.54L35.05,61.06L35.58,62.54L36.24,63.97L37.00,65.35L37.87,66.66L38.85,67.90L39.91,69.06L41.07,70.12L42.30,71.10L43.61,71.97L44.99,72.74L46.42,73.40L47.89,73.94L49.41,74.36L50.96,74.67L52.52,74.84L54.09,74.90L55.67,74.83L57.23,74.64L58.77,74.32L60.28,73.88L61.77,73.37L63.22,72.73L64.61,71.99L65.95,71.13L67.22,70.17L68.41,69.11L69.51,67.95L70.52,66.71L71.44,65.40L72.25,64.00L72.94,62.55L73.53,61.04L73.99,59.49L74.33,57.91L74.55,56.29L74.63,54.66L74.59,53.03L74.42,51.40L74.12,49.78L73.69,48.19L73.14,46.64L72.47,45.12L71.68,43.67L70.77,42.27L69.75,40.95L68.63,39.70L67.42,38.55L66.11,37.49L64.72,36.53L63.26,35.68L61.73,34.94L60.14,34.32L58.51,33.79Z" style="fill:var(--accent)"/><path d="M66.06,45.58L66.74,46.34L67.35,47.17L67.90,48.04L68.39,48.95L68.82,49.90L69.18,50.87L69.48,51.88L69.71,52.90L69.87,53.95L69.95,55.00L69.97,56.06L69.92,57.12L69.79,58.18L69.59,59.24L69.32,60.28L68.98,61.30L68.57,62.30L68.10,63.27L67.56,64.21L66.95,65.12L66.29,65.99L65.56,66.81L64.79,67.58L63.95,68.31L63.07,68.97L62.15,69.58L61.18,70.13L60.18,70.61L59.15,71.03L58.08,71.37L57.00,71.65L55.89,71.85L54.77,71.98L53.64,72.00L52.52,71.94L51.40,71.80L50.29,71.59L49.20,71.31L48.13,70.95L47.09,70.53L46.07,70.04L45.09,69.48L44.15,68.86L43.26,68.17L42.41,67.43L41.61,66.64L40.86,65.79L40.18,64.90L39.55,63.96L38.99,62.98L38.49,61.97L38.07,60.93L37.71,59.86L37.42,58.77L37.21,57.66L37.07,56.54L37.01,55.42L37.01,54.29L37.10,53.16L37.26,52.05A2.00,2.00 0,0,1 41.20,52.74L41.08,53.60L41.01,54.46L41.00,55.32L41.05,56.18L41.16,57.03L41.32,57.88L41.54,58.71L41.82,59.53L42.14,60.33L42.52,61.10L42.95,61.85L43.43,62.57L43.95,63.25L44.52,63.90L45.13,64.51L45.78,65.07L46.47,65.60L47.19,66.07L47.94,66.50L48.71,66.88L49.51,67.20L50.33,67.47L51.16,67.69L52.01,67.85L52.87,67.95L53.73,68.00L54.59,67.99L55.45,67.96L56.32,67.88L57.18,67.73L58.03,67.54L58.86,67.28L59.68,66.97L60.49,66.61L61.26,66.19L62.02,65.72L62.74,65.19L63.43,64.62L64.08,64.01L64.69,63.35L65.25,62.65L65.78,61.91L66.25,61.13L66.67,60.33L67.04,59.49L67.36,58.63L67.62,57.75L67.82,56.84L67.96,55.93L68.05,55.00L68.07,54.07L68.03,53.13L67.93,52.19L67.77,51.26L67.54,50.34L67.26,49.43L66.92,48.53L66.52,47.65L66.07,46.80L65.58,45.95Z" style="fill:var(--accent)"/><path d="M62.19,56.15L62.21,56.59L62.18,57.03L62.13,57.47L62.04,57.91L61.93,58.34L61.80,58.77L61.64,59.19L61.45,59.61L61.24,60.02L61.01,60.41L60.76,60.80L60.48,61.17L60.18,61.53L59.87,61.88L59.53,62.21L59.17,62.52L58.80,62.81L58.41,63.09L58.00,63.34L57.58,63.58L57.15,63.79L56.70,63.98L56.24,64.15L55.77,64.29L55.29,64.41L54.81,64.50L54.32,64.57L53.82,64.61L53.32,64.63L52.82,64.62L52.32,64.58L51.81,64.52L51.32,64.43L50.83,64.27L50.36,64.10L49.89,63.90L49.43,63.67L48.99,63.42L48.56,63.15L48.15,62.86L47.75,62.55L47.37,62.21L47.00,61.86L46.66,61.49L46.33,61.10L46.02,60.70L45.74,60.28L45.48,59.84L45.24,59.39L45.02,58.93L44.83,58.46L44.67,57.98L44.52,57.50L44.41,57.00L44.32,56.50L44.25,56.00L44.21,55.50L44.20,54.99L44.21,54.48L44.25,53.98A1.80,1.80 0,0,1 47.83,54.35L47.81,54.67L47.80,54.99L47.81,55.31L47.83,55.63L47.87,55.95L47.93,56.27L48.00,56.58L48.09,56.89L48.20,57.19L48.32,57.49L48.46,57.78L48.61,58.06L48.77,58.34L48.95,58.60L49.15,58.86L49.35,59.11L49.57,59.34L49.80,59.56L50.05,59.77L50.30,59.97L50.56,60.16L50.83,60.33L51.11,60.49L51.40,60.63L51.69,60.76L52.00,60.87L52.30,60.96L52.60,61.08L52.91,61.18L53.23,61.27L53.55,61.33L53.88,61.39L54.21,61.42L54.55,61.44L54.89,61.44L55.23,61.43L55.57,61.39L55.91,61.34L56.25,61.27L56.58,61.19L56.92,61.08L57.25,60.96L57.58,60.82L57.90,60.66L58.21,60.49L58.52,60.29L58.82,60.09L59.10,59.86L59.38,59.62L59.65,59.36L59.91,59.09L60.16,58.81L60.39,58.51L60.61,58.19L60.81,57.87L61.00,57.53L61.18,57.18L61.34,56.82L61.50,56.45L61.65,56.08Z" style="fill:var(--accent)"/></svg>`;
@@ -2443,6 +2469,42 @@ function alarmBanner(){
   if(!Snd.ready()) return `<div class="banner" id="alarm-banner">${I.bell}<div class="grow">Turn on alarm sound so reminders can ring on this device.</div><button class="btn sm" data-act="enable-alarms">Turn on</button></div>`;
   return `<div class="banner" id="alarm-banner">${I.bell}<div class="grow">Allow notifications so reminders also pop up when this tab is in the background.</div><button class="btn sm" data-act="enable-notif">Allow</button><button class="icon-btn" data-act="dismiss-notif" aria-label="Not now" style="color:inherit">${I.x}</button></div>`;
 }
+/* ----- Today dashboard: one score for the day, then quick actions ----- */
+// Each part counts only when it applies today; the score is their average
+function todayScore(tasks,hs,hd){
+  const n=todayS(),parts=[];
+  if(modOn('tasks')){const done=S.tasks.filter(t=>t.done&&t.doneAt&&ymd(new Date(t.doneAt))===n).length,tot=done+tasks.length;
+    parts.push({k:'tasks',label:'Tasks',v:tot?done/tot:null,text:tot?done+' / '+tot+' done':'Nothing due',href:'#tasks'})}
+  if(modOn('habits')) parts.push({k:'habits',label:'Habits',v:hs.length?hd/hs.length:null,text:hs.length?hd+' / '+hs.length+' checked in':'None today',href:'#habits'});
+  if(modOn('money')){
+    const d=new Date(),ym=n.slice(0,7),ex=monthTx(ym).filter(t=>t.type==='expense'),today=r2(ex.filter(t=>t.date===n).reduce((a,t)=>a+ +t.amount,0)),before=r2(ex.filter(t=>t.date<n).reduce((a,t)=>a+ +t.amount,0));
+    const budget=+S.settings.budget||0,left=new Date(d.getFullYear(),d.getMonth()+1,0).getDate()-d.getDate()+1,safe=budget?Math.max(0,(budget-before)/left):0;
+    parts.push({k:'money',label:'Spent today',v:budget?(today<=safe?1:Math.max(0,safe/today)):null,text:inr(today)+(budget?' · '+inr(safe)+' safe':''),href:'#money'})}
+  if(modOn('gym')&&S.gym){const g=S.gym.logs.filter(l=>l.date===n),nx=gymNext();
+    parts.push({k:'gym',label:'Gym',v:g.length?1:0,text:g.length?'Done · '+g[0].title:nx?'Next: '+nx.label.replace(/^Week \d+ · /,''):'Rest',href:'#gym'})}
+  const scored=parts.filter(x=>x.v!=null);
+  return {parts,score:scored.length?Math.round(scored.reduce((a,x)=>a+x.v,0)/scored.length*100):null};
+}
+function dashHero(greet,tasks,over,hs,hd,collect){
+  const d=new Date(),sc=todayScore(tasks,hs,hd),p=sc.score==null?0:sc.score,C=2*Math.PI*52;
+  const msg=sc.score==null?'Plan your day: add a task or a habit to start your score.':p>=100?'Everything done today. Brilliant.':p>=60?'Good going. Keep it up.':over?over+' overdue task'+(over>1?'s':'')+' waiting.':'Small steps count. Pick one thing and start.';
+  return `<div class="dash">
+    <div class="dash-top"><div><div class="dash-date">${WD[d.getDay()].toUpperCase()} · ${d.getDate()} ${MON[d.getMonth()].toUpperCase()}</div><div class="dash-hi">${greet}</div></div><a class="icon-btn dash-gear" href="#prefs" aria-label="Settings">${I.gear}</a></div>
+    <div class="dash-main">
+      <div class="dash-ring" role="img" aria-label="Today’s score ${sc.score==null?'not started':p+' percent'}">
+        <svg viewBox="0 0 120 120"><defs><linearGradient id="dashg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" style="stop-color:var(--accent)"/><stop offset="1" style="stop-color:var(--neon2,var(--accent))"/></linearGradient></defs>
+          <circle cx="60" cy="60" r="52" class="dash-track"/><circle cx="60" cy="60" r="52" class="dash-arc" stroke-dasharray="${(C*p/100).toFixed(1)} ${C.toFixed(1)}"/></svg>
+        <div><b class="num">${sc.score==null?'–':p}</b><span>${sc.score==null?'today':'% today'}</span></div></div>
+      <div class="dash-stats">${sc.parts.map(x=>`<a href="${x.href}" class="dash-stat"><i style="opacity:${x.v==null?.3:.35+.65*x.v}"></i><span class="grow"><span class="tiny muted">${x.label}</span><b>${esc(x.text)}</b></span></a>`).join('')}
+        ${modOn('carpool')&&collect>0?`<a href="#carpool" class="dash-stat"><i style="opacity:.6"></i><span class="grow"><span class="tiny muted">Carpool</span><b>${inr(collect)} to collect</b></span></a>`:''}</div>
+    </div>
+    <div class="dash-msg">${esc(msg)}</div>
+  </div>`;
+}
+function dashActions(){
+  const a=[modOn('tasks')&&['new-task','',I.tasks,'Task'],modOn('money')&&['tx-new','expense',I.money,'Expense'],modOn('gym')&&['gym-start','',I.play,'Workout'],modOn('gym')&&['gym-weigh','',I.scale,'Weight'],modOn('habits')&&['go-habits','',I.habits,'Habits']].filter(Boolean).slice(0,4);
+  return a.length?`<div class="qa">${a.map(([act,v,ic,l],i)=>`<button class="qa-btn${i===0?' on':''}" data-act="${act}" ${v?`data-v="${v}"`:''}><span>${ic}</span>${l}</button>`).join('')}</div>`:'';
+}
 function viewToday(){
   const d=new Date(), n=todayS(), h=d.getHours();
   const greet=h<5?'Working late':h<12?'Good morning':h<17?'Good afternoon':'Good evening';
@@ -2452,10 +2514,10 @@ function viewToday(){
   const o=owed(), collect=r2(Object.values(o).filter(v=>v>0).reduce((a,v)=>a+v,0));
   const next=upcomingAlarms(Date.now(),Date.now()+36*3600000).filter(a=>!A.fired[a.key]).slice(0,6);
   const recent=S.txns.filter(t=>t.type==='expense').sort((a,b)=>a.date===b.date?(b.created||0)-(a.created||0):a.date<b.date?1:-1).slice(0,5);
-  return `<div class="hero"><div class="hero-top"><span class="logo">${LOGO}Mine</span><a class="icon-btn" href="#prefs" aria-label="Settings">${I.gear}</a></div><div class="date">${WD[d.getDay()]} <span>${d.getDate()} ${MON[d.getMonth()]}</span></div><div class="sub">${greet}. ${[modOn('tasks')?(tasks.length?tasks.length+' task'+(tasks.length>1?'s':'')+' today'+(over?', '+over+' overdue':''):'No tasks due today'):'',modOn('habits')&&hs.length?hd+'/'+hs.length+' habits':''].filter(Boolean).join(' · ')||'Have a good day'}</div></div>
+  return `${dashHero(greet,tasks,over,hs,hd,collect)}
+  ${dashActions()}
   ${alarmBanner()}
   ${modOn('money')?smsBanner():''}
-  ${(()=>{const cells=[modOn('tasks')&&`<div><div class="k">Tasks today</div><div class="v num">${tasks.length}</div></div>`,modOn('habits')&&`<div><div class="k">Habits done</div><div class="v num">${hd}/${hs.length}</div></div>`,modOn('money')&&`<div><div class="k">Spent in ${MON[d.getMonth()]}</div><div class="v num">${inr(spent)}</div></div>`,modOn('carpool')&&`<div><div class="k">Carpool to collect</div><div class="v num pos">${inr(collect)}</div></div>`].filter(Boolean);return cells.length?`<div class="ledger">${cells.join('')}</div>`:''})()}
   <div class="grid2"><div>
     ${modOn('tasks')?`<div class="panel"><div class="panel-head"><h3>Today’s tasks</h3><a class="btn sm ghost" href="#tasks" data-act="goto-today-tasks">All tasks</a></div>
       <div class="quick"><input id="quick" placeholder="Add a task, e.g. Call bank 4pm" autocomplete="off" data-date="${n}" aria-label="Add a task for today"><button class="btn primary sm" data-act="quick-add">Add</button></div><div class="quick-hint" id="quick-hint"></div>
@@ -2648,6 +2710,7 @@ ui(async e=>{
     case 'gym-skip': {const nx=gymNext();confirmBox('Skip '+nx.title+' and move to the next workout?','Skip',()=>{S.gym.pos[gymProg()]=nx.seq+1;Store.mark('gym');render();toast('Moved to '+gymNext().label)});break}
     case 'gym-setpos': S.gym.pos[gymProg()]=+v; Store.mark('gym'); closeModal(); render(); toast('Next workout: '+gymNext().label); break;
     case 'gym-week': UI.gymWeekOpen=UI.gymWeekOpen===+v?0:+v; render(); break;
+    case 'go-habits': location.hash='habits'; break;
     case 'gym-start': gymStart(v!=null&&v!==''?v:String(gymPos())); break;
     case 'gym-weigh': gymWeighSheet(v); break;
     case 'gym-weigh-save': {const d=$('#gw-date').value||todayS(),w=r2($('#gw-w').value),wa=r2($('#gw-waist').value);if(!(w>0)&&!(wa>0))return toast('Enter your weight or waist');
