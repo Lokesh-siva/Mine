@@ -8,7 +8,7 @@ import android.view.accessibility.AccessibilityEvent;
 
 /**
  * Watches only which app comes to the front (never screen content). During a fast, opening a
- * blocked app sends you home and shows the "You're fasting" screen instead.
+ * blocked app puts the full-screen "not while fasting" message on top of it.
  */
 public class FastingGuard extends AccessibilityService {
     private String lastPkg = "";
@@ -28,10 +28,10 @@ public class FastingGuard extends AccessibilityService {
         if (pkg.equals(lastPkg) && now - lastAt < 1500) return;
         lastPkg = pkg;
         lastAt = now;
-        performGlobalAction(GLOBAL_ACTION_HOME);
+        // cover the app straight away; going home first could hide this screen behind the launcher
         Intent i = new Intent(this, FastingBlockActivity.class)
                 .putExtra("pkg", pkg)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NO_ANIMATION);
         startActivity(i);
     }
 

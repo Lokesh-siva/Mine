@@ -16,7 +16,7 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-/** Shown instead of a blocked app during a fast: time left, streak, gym progress. */
+/** Full-screen "not while fasting" message over a paused app, styled like the alarm screen. */
 public class FastingBlockActivity extends Activity {
     private static final int BG = Color.parseColor("#0A0F0C");
     private static final int INK = Color.parseColor("#E8F1EB");
@@ -46,46 +46,42 @@ public class FastingBlockActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER_HORIZONTAL);
         root.setBackgroundColor(BG);
-        root.setPadding(dp(32), dp(100), dp(32), dp(40));
+        root.setPadding(dp(32), dp(110), dp(32), dp(40));
 
-        TextView moon = text("🌙", 44, INK, Typeface.DEFAULT);
-        root.addView(moon);
-        TextView title = text("You’re fasting", 28, INK, Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        title.setPadding(0, dp(14), 0, 0);
+        // same layout as the alarm screen: big thin countdown, a little green, two buttons at the bottom
+        left = text("", 96, INK, Typeface.create("sans-serif-thin", Typeface.NORMAL));
+        root.addView(left);
+        TextView until = text("LEFT · UNTIL " + Fasting.endLabel(this, end).toUpperCase(java.util.Locale.getDefault()), 13, accent,
+                Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        until.setLetterSpacing(0.2f);
+        root.addView(until);
+
+        TextView title = text("Not available while fasting", 20, INK, Typeface.create("sans-serif", Typeface.NORMAL));
+        title.setPadding(0, dp(22), 0, 0);
         root.addView(title);
-        TextView sub = text(app + " is paused until " + Fasting.endLabel(this, end), 15, MUTED, Typeface.DEFAULT);
+        TextView sub = text(app + " opens again at " + Fasting.endLabel(this, end), 14, MUTED, Typeface.DEFAULT);
         sub.setPadding(0, dp(6), 0, 0);
         root.addView(sub);
 
-        left = text("", 56, accent, Typeface.create("sans-serif-thin", Typeface.NORMAL));
-        left.setPadding(0, dp(30), 0, 0);
-        root.addView(left);
-        TextView leftLabel = text("LEFT", 11, MUTED, Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        leftLabel.setLetterSpacing(0.25f);
-        root.addView(leftLabel);
-
         int s = Fasting.streak(this);
-        TextView streak = text(s > 0 ? "🔥 " + s + "-day streak" : "Finish tonight to start your streak", 17, INK, Typeface.DEFAULT);
-        streak.setPadding(0, dp(30), 0, 0);
-        root.addView(streak);
         String prog = Fasting.progress(this);
-        if (!prog.isEmpty()) {
-            TextView p = text(prog, 14, MUTED, Typeface.DEFAULT);
-            p.setPadding(0, dp(6), 0, 0);
-            root.addView(p);
-        }
+        String line = (s > 0 ? "🔥 " + s + "-day streak" : "Finish tonight to start your streak") + (prog.isEmpty() ? "" : "\n" + prog);
+        TextView streak = text(line, 14, MUTED, Typeface.DEFAULT);
+        streak.setPadding(0, dp(26), 0, 0);
+        streak.setLineSpacing(dp(3), 1f);
+        root.addView(streak);
 
         View spacer = new View(this);
         root.addView(spacer, new LinearLayout.LayoutParams(1, 0, 1f));
 
-        Button back = button("Back to home", accent, true);
-        back.setOnClickListener(v -> goHome());
-        root.addView(back);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
         Button anyway = button("Open anyway", INK, false);
         anyway.setOnClickListener(v -> {
             if (!armed) {
                 armed = true;
-                anyway.setText("Tap again: this ends today’s fast");
+                anyway.setText("Tap again to end fast");
                 return;
             }
             Fasting.breakFast(this);
@@ -93,9 +89,11 @@ public class FastingBlockActivity extends Activity {
             finish();
             if (launch != null) startActivity(launch);
         });
-        LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) anyway.getLayoutParams();
-        lp.topMargin = dp(10);
-        root.addView(anyway);
+        row.addView(anyway);
+        Button back = button("Back to home", accent, true);
+        back.setOnClickListener(v -> goHome());
+        row.addView(back);
+        root.addView(row);
         setContentView(root);
         update();
     }
@@ -109,7 +107,7 @@ public class FastingBlockActivity extends Activity {
             return;
         }
         long m = ms / 60000;
-        left.setText((m / 60) + "h " + String.format(java.util.Locale.US, "%02d", m % 60) + "m");
+        left.setText((m / 60) + ":" + String.format(java.util.Locale.US, "%02d", m % 60));
         tick.postDelayed(every, 30000);
     }
 
@@ -155,10 +153,12 @@ public class FastingBlockActivity extends Activity {
         } else {
             bg.setColor(Color.TRANSPARENT);
             bg.setStroke(dp(1), LINE);
-            b.setTextColor(MUTED);
+            b.setTextColor(INK);
         }
         b.setBackground(bg);
-        b.setLayoutParams(new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(52)));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(52), 1f);
+        lp.setMargins(dp(5), 0, dp(5), 0);
+        b.setLayoutParams(lp);
         return b;
     }
 
