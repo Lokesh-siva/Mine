@@ -52,7 +52,7 @@ public class MainActivity extends Activity {
         // Hide contents from screenshots and the recent-apps preview
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE);
         web = new WebView(this);
-        web.setBackgroundColor(Color.parseColor("#0A0F0C"));
+        web.setBackgroundColor(Color.parseColor("#07060B"));
         setContentView(web);
 
         WebSettings s = web.getSettings();
