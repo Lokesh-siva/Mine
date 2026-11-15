@@ -22,12 +22,12 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-/** Minimal alarm screen: the time, what it is for, three snooze times and dismiss. */
+/** Minimal alarm screen: the time, what it is for, three snooze times, dismiss and (for tasks and habits) completed. */
 public class AlarmActivity extends Activity {
     private static final int BG = Color.parseColor("#0A0F0C");
     private static final int INK = Color.parseColor("#E8F1EB");
     private static final int MUTED = Color.parseColor("#7D9085");
-    private static final int LINE = Color.parseColor("#26332C");
+    private static final int LINE = Color.parseColor("#33433A");
     private int accent = Theme.DEFAULT_ACCENT;
 
     private JSONObject alarm;
@@ -73,7 +73,12 @@ public class AlarmActivity extends Activity {
 
         String time = new SimpleDateFormat("h:mm", Locale.getDefault())
                 .format(new Date(alarm.optLong("at", System.currentTimeMillis())));
+        String ampm = new SimpleDateFormat("a", Locale.getDefault())
+                .format(new Date(alarm.optLong("at", System.currentTimeMillis()))).toUpperCase(Locale.getDefault());
         root.addView(text(time, 96, INK, Typeface.create("sans-serif-thin", Typeface.NORMAL)));
+        TextView ap = text(ampm, 14, accent, Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        ap.setLetterSpacing(0.25f);
+        root.addView(ap);
 
         TextView title = text(details ? alarm.optString("title", "Reminder") : "Reminder", 20, INK,
                 Typeface.create("sans-serif", Typeface.NORMAL));
@@ -104,39 +109,41 @@ public class AlarmActivity extends Activity {
         View spacer = new View(this);
         root.addView(spacer, new LinearLayout.LayoutParams(1, 0, 1f));
 
+        // snooze: soft green pills
+        TextView snoozeLabel = text("SNOOZE", 11, accent, Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        snoozeLabel.setLetterSpacing(0.25f);
+        snoozeLabel.setPadding(0, 0, 0, dp(8));
+        root.addView(snoozeLabel);
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        for (int min : AlarmReceiver.SNOOZE_MIN) {
+            String label = min >= 60 ? (min / 60) + " hr" : min + " min";
+            row.addView(button(label, STYLE_TINT, v -> {
+                cancelNotification();
+                AlarmScheduler.snooze(this, alarm, min);
+                finish();
+            }));
+        }
+        root.addView(row);
+
+        // Dismiss, with Completed beside it for tasks and habits
+        LinearLayout last = new LinearLayout(this);
+        last.setOrientation(LinearLayout.HORIZONTAL);
+        last.setGravity(Gravity.CENTER);
+        last.setPadding(0, dp(12), 0, 0);
+        last.addView(button("Dismiss", STYLE_OUTLINE, v -> {
+            cancelNotification();
+            finish();
+        }));
         if (details && doneKind) {
-            root.addView(button("task".equals(kind) ? "Done" : "Check in", accent, true, LinearLayout.LayoutParams.MATCH_PARENT, v -> {
+            last.addView(button("task".equals(kind) ? "Completed" : "Checked in", STYLE_FILL, v -> {
                 cancelNotification();
                 startActivity(AlarmReceiver.doneIntent(this, alarm.optString("key", ""), alarm.toString()));
                 finish();
             }));
         }
-
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER);
-        row.setPadding(0, dp(12), 0, 0);
-        for (int min : AlarmReceiver.SNOOZE_MIN) {
-            String label = min >= 60 ? (min / 60) + " hr" : min + " min";
-            Button b = button(label, INK, false, 0, v -> {
-                cancelNotification();
-                AlarmScheduler.snooze(this, alarm, min);
-                finish();
-            });
-            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) b.getLayoutParams();
-            lp.weight = 1f;
-            lp.setMargins(dp(4), 0, dp(4), 0);
-            row.addView(b);
-        }
-        root.addView(row);
-
-        TextView dismiss = text("Dismiss", 15, MUTED, Typeface.DEFAULT);
-        dismiss.setPadding(dp(24), dp(24), dp(24), dp(4));
-        dismiss.setOnClickListener(v -> {
-            cancelNotification();
-            finish();
-        });
-        root.addView(dismiss);
+        root.addView(last);
         setContentView(root);
     }
 
@@ -155,15 +162,26 @@ public class AlarmActivity extends Activity {
         return t;
     }
 
-    /** Thin outlined button; the stroke is the only colour on the screen. */
-    private Button button(String label, int color, boolean accentStroke, int width, View.OnClickListener l) {
-        Button b = baseButton(label, 15, color, l);
+    private static final int STYLE_TINT = 0, STYLE_OUTLINE = 1, STYLE_FILL = 2;
+
+    /** Equal-width rounded button: green tint (snooze), outline (dismiss) or solid green (completed). */
+    private Button button(String label, int style, View.OnClickListener l) {
+        int fg = style == STYLE_FILL ? Theme.ink(accent) : style == STYLE_TINT ? accent : INK;
+        Button b = baseButton(label, 15, fg, l);
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(dp(26));
-        bg.setColor(Color.TRANSPARENT);
-        bg.setStroke(dp(1), accentStroke ? accent : LINE);
+        if (style == STYLE_FILL) bg.setColor(accent);
+        else if (style == STYLE_TINT) {
+            bg.setColor((accent & 0x00FFFFFF) | 0x1F000000);
+            bg.setStroke(dp(1), (accent & 0x00FFFFFF) | 0x40000000);
+        } else {
+            bg.setColor(Color.TRANSPARENT);
+            bg.setStroke(dp(1), LINE);
+        }
         b.setBackground(bg);
-        b.setLayoutParams(new LinearLayout.LayoutParams(width, dp(52)));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(52), 1f);
+        lp.setMargins(dp(5), 0, dp(5), 0);
+        b.setLayoutParams(lp);
         return b;
     }
 
