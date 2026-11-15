@@ -219,17 +219,14 @@ final class Fasting {
         }
         channel(c);
         long st = windowStart(c, System.currentTimeMillis()), end = windowEnd(c, st);
-        int s = streak(c);
-        String line1 = (s > 0 ? "🔥 " + s + "-day streak" : "Day 1 of your streak") + " · keep it going";
-        String prog = progress(c);
         PendingIntent open = PendingIntent.getActivity(c, 7712, new Intent(c, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        // minimal: just that it's fasting time and a live countdown to the end
         Notification.Builder b = new Notification.Builder(c, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat)
                 .setColor(Theme.accent(c))
-                .setContentTitle("🌙 Fasting until " + endLabel(c, end))
-                .setContentText(line1)
-                .setStyle(new Notification.BigTextStyle().bigText(line1 + (prog.isEmpty() ? "" : "\n" + prog) + "\nNo food orders now. You’ve got this."))
+                .setContentTitle("Fasting time")
+                .setContentText("Until " + endLabel(c, end))
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setShowWhen(true)
@@ -237,8 +234,7 @@ final class Fasting {
                 .setUsesChronometer(true)
                 .setChronometerCountDown(true)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
-                .setContentIntent(open)
-                .addAction(new Notification.Action.Builder(null, "I ate (end today’s fast)", pi(c, ACT_BREAK, 7713)).build());
+                .setContentIntent(open);
         nm.notify(NID, b.build());
     }
 
@@ -250,12 +246,10 @@ final class Fasting {
         long last = windowStart(c, System.currentTimeMillis() - 60000L);
         if (last >= 0 && broken(c).contains(id(last))) return;
         channel(c);
-        int s = streak(c);
         nm.notify(NID_DONE, new Notification.Builder(c, CHANNEL)
                 .setSmallIcon(R.drawable.ic_stat)
                 .setColor(Theme.accent(c))
-                .setContentTitle("Fast complete 🎉")
-                .setContentText(s > 0 ? "🔥 " + s + "-day streak. Eat well." : "Nice work. Eat well.")
+                .setContentTitle("Fasting complete")
                 .setAutoCancel(true)
                 .setTimeoutAfter(2 * 60 * 60 * 1000L)
                 .build());
