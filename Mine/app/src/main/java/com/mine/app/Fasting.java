@@ -29,6 +29,7 @@ final class Fasting {
     static final String ACT_START = "com.mine.app.FAST_START";
     static final String ACT_END = "com.mine.app.FAST_END";
     static final String ACT_BREAK = "com.mine.app.FAST_BREAK";
+    static final String ACT_REPOST = "com.mine.app.FAST_REPOST";
     private static final String PREFS = "mine_fast";
     private static final String CHANNEL = "mine_fasting";
     private static final int NID = 7700, NID_DONE = 7701;
@@ -234,7 +235,9 @@ final class Fasting {
                 .setUsesChronometer(true)
                 .setChronometerCountDown(true)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
-                .setContentIntent(open);
+                .setContentIntent(open)
+                // newer Android lets you swipe away ongoing notifications; put it straight back while the fast runs
+                .setDeleteIntent(pi(c, ACT_REPOST, 7714));
         nm.notify(NID, b.build());
     }
 

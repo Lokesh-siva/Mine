@@ -1679,6 +1679,8 @@ function upcomingAlarms(fromMs,toMs){
       if(r.weekly&&d.getDay()===0){const a=dayNum(S.gym.start)+(w-1)*7,dn=S.gym.logs.filter(l=>dayNum(l.date)>=a&&dayNum(l.date)<a+7).length,avg=gymWeekAvg(w);
         push('g:week@'+s,'gym','','📊 Week '+w+' check-in',dn+' workout'+(dn===1?'':'s')+' this week'+(avg?' · average '+avg+' kg (target '+gymTargetAt(w)+' kg)':' · log your weight this week'),at(d,'19:00'))}
     })}
+  // heads-up 30 minutes before the fasting window starts
+  {const f=fastCfg();if(f.on){const [fh,fm]=f.start.split(':').map(Number);days.forEach(d=>{const at=new Date(d);at.setHours(fh,fm-30,0,0);push('fast@'+ymd(d),'fast','','🌙 Fasting starts at '+fmtTime(f.start),'30 minutes left to eat',at)})}}
   Object.entries(A.snoozes).forEach(([k,v])=>push(k,v.kind,v.id,v.title,'Snoozed reminder',new Date(v.at)));
   return out.sort((a,b)=>a.at-b.at);
 }
@@ -1705,7 +1707,7 @@ function renderAlarm(){
   const el=$('#alarm');
   if(!Q.length){el.classList.remove('open');el.innerHTML='';Snd.stop();clearInterval(flashT);document.title=baseTitle;return}
   const a=Q[0], sn=S.settings.snooze||10;
-  const kindL={task:'Task reminder',habit:'Habit reminder',card:'Credit card bill',focus:'Focus timer',gym:'Gym'}[a.kind]||'Reminder';
+  const kindL={task:'Task reminder',habit:'Habit reminder',card:'Credit card bill',focus:'Focus timer',gym:'Gym',fast:'Fasting'}[a.kind]||'Reminder';
   let acts='';
   if(a.kind==='task') acts=`<button class="main" data-act="al-done">Mark done</button><button data-act="al-snooze" data-v="5">Snooze 5 min</button><button data-act="al-snooze" data-v="30">30 min</button><button data-act="al-snooze" data-v="60">1 hour</button><button data-act="al-dismiss">Dismiss</button>`;
   else if(a.kind==='habit') acts=`<button class="main" data-act="al-hdone">Check in</button><button data-act="al-snooze" data-v="5">Snooze 5 min</button><button data-act="al-snooze" data-v="30">30 min</button><button data-act="al-snooze" data-v="60">1 hour</button><button data-act="al-dismiss">Skip</button>`;
