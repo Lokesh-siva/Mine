@@ -517,7 +517,7 @@ function syncNative(){
     const list=upcomingAlarms(now+1000,now+14*86400000).slice(0,400).map(a=>({key:a.key,at:a.at.getTime(),title:a.title,body:a.sub||'',kind:a.kind,id:a.id||'',snooze:+S.settings.snooze||10}));
     if(F.running&&F.end>now) list.push({key:'focus@'+F.end,at:F.end,title:F.mode==='focus'?'Focus session done':'Break is over',body:'Focus timer',kind:'focus',id:'',snooze:5});
     window.MineNative.setAlarms(JSON.stringify(list));
-    try{window.MineNative.setFasting(JSON.stringify(Object.assign({},fastCfg(),fastLines())))}catch(e){}
+    try{window.MineNative.setFasting(JSON.stringify(fastCfg()))}catch(e){}
   }catch(e){console.warn(e)}},400);
 }
 function nativeStatus(){try{return JSON.parse(window.MineNative.alarmStatus())}catch(e){return {notif:true,exact:true,fullscreen:true}}}
@@ -568,7 +568,7 @@ const Store={db:null,uid:null,timers:{},chain:{},
     this.chain[n]=(this.chain[n]||Promise.resolve()).then(()=>ref.set(JSON.parse(JSON.stringify(data)))).then(()=>setSync('ok')).catch(e=>{console.warn('sync',n,e);setSync('err')});
   }
 };
-function defaultsSettings(){return {fast:{on:false,start:'20:00',end:'10:00',apps:[]},sound:'chime',allDayTime:'09:00',snooze:10,budget:0,theme:'system',accent:'#3DDC84',missedOn:true,missedTime:'09:00',upi:'',focusMin:25,shortMin:5,longMin:15}}
+function defaultsSettings(){return {fast:{on:false,start:'20:00',end:'10:00'},sound:'chime',allDayTime:'09:00',snooze:10,budget:0,theme:'system',accent:'#3DDC84',missedOn:true,missedTime:'09:00',upi:'',focusMin:25,shortMin:5,longMin:15}}
 function applyDoc(n,d){
   if(n==='settings') S.settings=Object.assign(defaultsSettings(),d.settings||{});
   else if(n==='money'){S.accounts=d.accounts||[];S.cats=d.cats||S.cats;S.rules=d.rules||S.rules||[];S.mcat=d.mcat||S.mcat||{}}
@@ -700,16 +700,8 @@ function modulesPanel(){
     ${o.map((k,i)=>{const r=ROUTES.find(x=>x[0]===k),en=modOn(k);return `<div class="row modrow" style="padding:6px 0;gap:6px"><span class="txicon" style="${en?'':'opacity:.4'}">${r[2]}</span><span class="grow" style="font-weight:600;${en?'':'opacity:.5'}">${r[1]}</span><button class="icon-btn" data-act="mod-move" data-v="${k}" data-d="-1" aria-label="Move ${r[1]} up" ${i?'':'disabled style="visibility:hidden"'}>↑</button><button class="icon-btn" data-act="mod-move" data-v="${k}" data-d="1" aria-label="Move ${r[1]} down" ${i<o.length-1?'':'disabled style="visibility:hidden"'}>↓</button><button class="btn sm${en?' primary':''}" style="min-width:52px" data-act="mod-toggle" data-v="${k}" ${en&&on===1?'disabled':''}>${en?'On':'Off'}</button></div>`}).join('')}
     ${modOn('today')?'':'<p class="tiny muted" style="margin:8px 0 0">With Today off, Settings gets its own tab.</p>'}</div>`;
 }
-/* ----- fasting window: silent countdown notification and paused apps (Android app) ----- */
-const fastCfg=()=>Object.assign({on:false,start:'20:00',end:'10:00',apps:[]},S.settings.fast||{});
-// Gym and weight line shown on the fasting notification and block screen
-function fastLines(){
-  const o={gym:'',weight:''};
-  if(modOn('gym')&&S.gym){const nx=gymNext();o.gym=(nx?nx.label.replace(/ · Day \d+$/,'')+' · ':'')+S.gym.logs.length+' workout'+(S.gym.logs.length===1?'':'s');
-    const b=S.gym.body.filter(x=>x.w).sort((a,c)=>a.date<c.date?-1:1),last=b[b.length-1];
-    if(last){const d=r2(S.gym.startW-last.w);o.weight=(d>0?'−':'+')+Math.abs(d)+' kg since start'}}
-  return o;
-}
+/* ----- fasting window: silent countdown notification (Android app) ----- */
+const fastCfg=()=>Object.assign({on:false,start:'20:00',end:'10:00'},S.settings.fast||{});
 // The window running now (works in the browser too)
 function fastNow(){
   const f=fastCfg(); if(!f.on) return null;
@@ -718,30 +710,16 @@ function fastNow(){
   for(let back=0;back<=1;back++){const st=new Date(now.getFullYear(),now.getMonth(),now.getDate()-back,Math.floor(mn(f.start)/60),mn(f.start)%60);const en=new Date(st.getTime()+len*60000);if(now>=st&&now<en)return {start:st,end:en}}
   return null;
 }
-function fastStatus(){if(!NATIVE)return {active:!!fastNow(),streak:0,guard:false,broken:false};try{return JSON.parse(window.MineNative.fastingStatus())}catch(e){return {active:false,streak:0,guard:false}}}
-const FOOD_APPS=/swiggy|zomato|zepto|blinkit|grofers|bigbasket|dunzo|eatsure|faasos|domino|mcdonald|kfc|pizza|magicpin|instamart|ubereats|eatfit|box8|behrouz|burger/i;
+function fastStatus(){if(!NATIVE)return {active:!!fastNow(),streak:0,broken:false};try{return JSON.parse(window.MineNative.fastingStatus())}catch(e){return {active:false,streak:0}}}
 function fastPanel(){
-  const f=fastCfg(),st=fastStatus(),w=fastNow(),apps=f.apps||[];
+  const f=fastCfg(),st=fastStatus(),w=fastNow();
   const left=w?Math.max(0,Math.round((w.end-Date.now())/60000)):0;
   return `<div class="panel"><div class="panel-head"><h3>🌙 Fasting</h3><button class="btn sm ${f.on?'primary':''}" data-act="fast-toggle">${f.on?'On':'Off'}</button></div>
-    <p class="small muted" style="margin:0">${f.on?(w?(st.broken?'Today’s fast ended early.':`Fasting now · ${Math.floor(left/60)}h ${pad(left%60)}m left`)+(st.streak?` · 🔥 ${st.streak}-day streak`:''):`Next fast starts at ${fmtTime(f.start)}.`+(st.streak?` 🔥 ${st.streak}-day streak.`:'')):'A daily window with no food. A quiet notification counts down and shows your streak and gym progress, and the apps you pick stay closed.'}</p>
+    <p class="small muted" style="margin:0">${f.on?(w?(st.broken?'Today’s fast ended early.':`Fasting now · ${Math.floor(left/60)}h ${pad(left%60)}m left`)+(st.streak?` · 🔥 ${st.streak}-day streak`:''):`Next fast starts at ${fmtTime(f.start)}.`+(st.streak?` 🔥 ${st.streak}-day streak.`:'')):'A daily window with no food. A quiet notification shows the time left, and an alarm rings 30 minutes before it starts.'}</p>
     ${f.on?`<div class="frow" style="margin-top:4px"><div><label class="f" for="fs-start">Starts</label><input class="in" type="time" id="fs-start" value="${f.start}"></div><div><label class="f" for="fs-end">Ends</label><input class="in" type="time" id="fs-end" value="${f.end}"></div></div>
-    <div class="row" style="padding:12px 0 4px"><div class="grow"><div style="font-weight:600">Paused apps</div><div class="tiny muted">${apps.length?apps.length+' app'+(apps.length>1?'s':'')+' closed during your fast':'None yet. Pick food delivery apps, for example.'}</div></div><button class="btn sm" data-act="fast-apps">${apps.length?'Change':'Choose'}</button></div>
-    ${NATIVE&&apps.length&&!st.guard?`<div class="banner" style="margin:8px 0 0">${I.bell}<div class="grow small">To pause apps, turn on <b>Mine fasting guard</b> in Accessibility. It only notices which app opens and never reads your screen.</div><button class="btn sm" data-act="fast-guard">Turn on</button></div>`:''}
-    ${NATIVE&&apps.length&&st.guard?'<div class="tiny pos" style="margin-top:6px">Fasting guard is on.</div>':''}
     ${w&&!st.broken?`<button class="btn sm ghost" data-act="fast-break" style="margin-top:8px;padding-left:0;color:var(--muted)">I ate, end today’s fast</button>`:''}`:''}
-    ${!NATIVE?'<p class="tiny muted" style="margin:8px 0 0">The notification and paused apps work in the Android app.</p>':''}
+    ${!NATIVE?'<p class="tiny muted" style="margin:8px 0 0">The notification works in the Android app.</p>':''}
   </div>`;
-}
-function fastAppsSheet(){
-  let list=[];try{list=JSON.parse(window.MineNative.launchableApps())||[]}catch(e){}
-  const sel=new Set(fastCfg().apps||[]);
-  list.sort((a,b)=>(FOOD_APPS.test(a.l+a.p)?0:1)-(FOOD_APPS.test(b.l+b.p)?0:1)||a.l.localeCompare(b.l));
-  const food=list.filter(a=>FOOD_APPS.test(a.l+a.p)),rest=list.filter(a=>!FOOD_APPS.test(a.l+a.p));
-  const row=a=>`<label class="check" style="padding:6px 0"><input type="checkbox" class="fast-app" value="${esc(a.p)}" ${sel.has(a.p)?'checked':''}> ${esc(a.l)}</label>`;
-  openModal(sheetHead('Apps to pause')+`<p class="small muted" style="margin-top:0">These stay closed during your fast. Opening one shows how long is left instead.</p>
-    ${list.length?`${food.length?`<h3 style="font-size:.85rem;margin:10px 0 2px" class="muted">Food delivery</h3>${food.map(row).join('')}`:''}<h3 style="font-size:.85rem;margin:14px 0 2px" class="muted">All apps</h3>${rest.map(row).join('')}`:'<div class="empty">Your apps show here in the Android app.</div>'}
-    <div class="sheet-foot"><button class="btn" data-act="close-modal">Cancel</button><button class="btn primary" data-act="fast-apps-save">Save</button></div>`,{type:'fastapps'});
 }
 function themePanel(){
   const cur=(S.settings.accent||'#3DDC84').toUpperCase(), known=ACCENTS.some(([h])=>h===cur);
@@ -2768,10 +2746,7 @@ ui(async e=>{
     case 'theme': S.settings.theme=v; applyTheme(); Store.mark('settings'); render(); break;
     case 'native-perm': try{window.MineNative.openAlarmSettings(v)}catch(err){} break;
     case 'fast-toggle': {const f=fastCfg();f.on=!f.on;S.settings.fast=f;Store.mark('settings');render();toast(f.on?'Fasting on: '+fmtTime(f.start)+' to '+fmtTime(f.end):'Fasting off');break}
-    case 'fast-apps': fastAppsSheet(); break;
-    case 'fast-apps-save': {const f=fastCfg();f.apps=$$('.fast-app').filter(x=>x.checked).map(x=>x.value);S.settings.fast=f;Store.mark('settings');closeModal();render();toast(f.apps.length?f.apps.length+' app'+(f.apps.length>1?'s':'')+' paused during fasts':'No apps paused');break}
-    case 'fast-guard': try{window.MineNative.openAccessibilitySettings();toast('Find “Mine fasting guard” and turn it on')}catch(err){} break;
-    case 'fast-break': confirmBox('End today’s fast? Paused apps open again and your streak restarts tomorrow.','End fast',()=>{try{window.MineNative.breakFast()}catch(err){}render();toast('Fast ended. Back at it tonight')}); break;
+    case 'fast-break': confirmBox('End today’s fast? The fasting notification goes away until tomorrow night.','End fast',()=>{try{window.MineNative.breakFast()}catch(err){}render();toast('Fast ended. Back at it tonight')}); break;
     case 'alarm-tone': try{window.MineNative.pickAlarmTone()}catch(err){toast('Alarm sounds can be changed in the Android app')} break;
     case 'test-alarm': try{window.MineNative.testAlarm(10);toast('Test alarm in 10 seconds. You can lock the phone.')}catch(err){} break;
     case 'app-lock': try{window.MineNative.setLock(v==='on')}catch(err){} render(); break;

@@ -1,6 +1,4 @@
 <resources>
     <string name="app_name">Mine</string>
     <string name="widget_desc">Add an expense in one tap</string>
-    <string name="fasting_guard_label">Mine fasting guard</string>
-    <string name="fasting_guard_desc">During your fasting window, Mine closes the apps you chose (like food delivery) and shows how long is left. It only checks which app opens and never reads what is on your screen.</string>
 </resources>

@@ -11,14 +11,6 @@
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <uses-permission android:name="android.permission.READ_SMS" />
 
-    <!-- to list your apps when choosing which ones to pause while fasting -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent>
-    </queries>
-
     <application
         android:allowBackup="false"
         android:fullBackupContent="false"
@@ -64,27 +56,6 @@
         <receiver
             android:name=".FastingReceiver"
             android:exported="false" />
-
-        <activity
-            android:name=".FastingBlockActivity"
-            android:exported="false"
-            android:excludeFromRecents="true"
-            android:launchMode="singleTask"
-            android:taskAffinity=""
-            android:theme="@style/Theme.Mine" />
-
-        <service
-            android:name=".FastingGuard"
-            android:exported="true"
-            android:label="@string/fasting_guard_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/fasting_guard" />
-        </service>
 
         <receiver
             android:name=".ExpenseWidget"

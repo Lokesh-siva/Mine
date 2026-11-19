@@ -13,7 +13,6 @@ import android.provider.Settings;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -222,33 +221,6 @@ public class Bridge {
     @JavascriptInterface
     public void breakFast() {
         Fasting.breakFast(activity.getApplicationContext());
-    }
-
-    @JavascriptInterface
-    public void openAccessibilitySettings() {
-        try {
-            activity.startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-        } catch (Exception ignored) { }
-    }
-
-    /** Apps on the phone that have a launcher icon: [{p: package, l: label}] */
-    @JavascriptInterface
-    public String launchableApps() {
-        JSONArray out = new JSONArray();
-        try {
-            android.content.pm.PackageManager pm = activity.getPackageManager();
-            Intent i = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER);
-            java.util.Set<String> seen = new java.util.HashSet<>();
-            for (android.content.pm.ResolveInfo r : pm.queryIntentActivities(i, 0)) {
-                String p = r.activityInfo.packageName;
-                if (p.equals(activity.getPackageName()) || !seen.add(p)) continue;
-                JSONObject o = new JSONObject();
-                o.put("p", p);
-                o.put("l", r.loadLabel(pm).toString());
-                out.put(o);
-            }
-        } catch (Exception ignored) { }
-        return out.toString();
     }
 
     @JavascriptInterface

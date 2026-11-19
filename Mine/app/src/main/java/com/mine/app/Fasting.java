@@ -10,7 +10,6 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
@@ -21,9 +20,8 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Daily fasting window (e.g. 8 pm to 10 am). While it runs, a silent ongoing notification counts down
- * and shows the streak and gym progress, and FastingGuard keeps chosen apps closed.
- * Settings come from the app as JSON: {on, start "HH:mm", end "HH:mm", apps [package names], gym, weight}.
+ * Daily fasting window (e.g. 8 pm to 10 am). While it runs, a silent ongoing notification counts down.
+ * Settings come from the app as JSON: {on, start "HH:mm", end "HH:mm"}.
  */
 final class Fasting {
     static final String ACT_START = "com.mine.app.FAST_START";
@@ -121,13 +119,6 @@ final class Fasting {
         return st >= 0 && !broken(c).contains(id(st));
     }
 
-    static boolean blocks(Context c, String pkg) {
-        JSONArray a = cfg(c).optJSONArray("apps");
-        if (a == null) return false;
-        for (int i = 0; i < a.length(); i++) if (pkg.equals(a.optString(i))) return true;
-        return false;
-    }
-
     /** Ends the current fast early: blocking stops and the streak restarts tomorrow. */
     static void breakFast(Context c) {
         long st = windowStart(c, System.currentTimeMillis());
@@ -202,15 +193,6 @@ final class Fasting {
         return new SimpleDateFormat("h:mm a", Locale.getDefault()).format(new Date(end));
     }
 
-    /** One line about the gym and weight, sent by the app. */
-    static String progress(Context c) {
-        JSONObject o = cfg(c);
-        StringBuilder s = new StringBuilder();
-        if (!o.optString("gym").isEmpty()) s.append("Gym: ").append(o.optString("gym"));
-        if (!o.optString("weight").isEmpty()) s.append(s.length() > 0 ? " · " : "").append(o.optString("weight"));
-        return s.toString();
-    }
-
     /** Shows the ongoing notification while fasting, removes it otherwise. */
     static void refresh(Context c) {
         NotificationManager nm = (NotificationManager) c.getSystemService(Context.NOTIFICATION_SERVICE);
@@ -267,7 +249,6 @@ final class Fasting {
             o.put("broken", st >= 0 && broken(c).contains(id(st)));
             o.put("endsAt", st >= 0 ? windowEnd(c, st) : 0);
             o.put("streak", streak(c));
-            o.put("guard", FastingGuard.enabled(c));
         } catch (Exception ignored) { }
         return o.toString();
     }
