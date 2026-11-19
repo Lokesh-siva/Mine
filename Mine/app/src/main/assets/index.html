@@ -2510,10 +2510,24 @@ function viewPrefs(){
   </div>
   <div class="panel"><h3>Your data</h3><p class="small muted">${NATIVE?'Everything is saved on this phone. Download a backup now and then, and use Restore to move your data to a new phone.':'Everything is saved to your Claude account, private to you, and kept on this device for offline use.'}</p>
     ${NATIVE?'<label class="f" for="bk-pass">Backup password (optional, encrypts the file)</label><input class="in" type="password" id="bk-pass" autocomplete="off" placeholder="Leave empty for a plain backup">':''}
-    <div class="row wrap"><button class="btn sm" data-act="backup">${I.download} Download backup</button><label class="btn sm" for="restore-file">Restore backup</label><input type="file" id="restore-file" accept=".json,application/json" class="hide"></div></div>
+    <div class="row wrap"><button class="btn sm" data-act="backup">${I.download} Download backup</button>${NATIVE?`<button class="btn sm" data-act="restore-pick">Restore backup</button>`:`<label class="btn sm" for="restore-file">Restore backup</label><input type="file" id="restore-file" accept=".json,application/json" class="hide">`}</div></div>
   </div></div>`;
 }
 
+// Restores a backup file's text (plain or password-protected)
+async function restoreBackup(txt){
+  let d;
+  try{d=JSON.parse(txt)}catch(e){return toast('That file isn’t a Mine backup')}
+  if(d&&d.mineEnc){const pw=(document.getElementById('bk-pass')||{}).value||'';if(!pw)return toast('Type the backup password above, then restore again');try{d=JSON.parse(await decBackup(d,pw))}catch(e2){return toast('Wrong backup password')}}
+  if(!d||!Array.isArray(d.tasks)) return toast('That file isn’t a Mine backup');
+  const n=(d.tasks||[]).length+' tasks, '+(d.txns||[]).length+' expenses, '+(d.habits||[]).length+' habits';
+  confirmBox('Replace everything in Mine with this backup ('+n+')?','Restore',()=>{
+    ['settings','accounts','cats','txns','lists','tasks','focus','habits','hlog','people','trips','pays','mcat','rules','gym'].forEach(k=>{if(k in d)S[k]=d[k]});
+    S.settings=Object.assign({},defaultsSettings(),S.settings||{});gymInit();
+    const ms=[...new Set(S.txns.map(x=>'txn_'+x.date.slice(0,7)))];Store.mark('settings','money','tasks','habits','carpool','gym',...ms);applyTheme();render();toast('Backup restored');
+  });
+}
+window.nativeBackupFile=t=>{if(t==null)toast('Couldn’t read that file');else restoreBackup(t)};
 function lockPanel(){
   let can=false,on=false;try{can=window.MineNative.canLock();on=window.MineNative.lockEnabled()}catch(e){}
   return `<div class="panel"><h3>App lock</h3>
@@ -2747,6 +2761,7 @@ ui(async e=>{
     case 'native-perm': try{window.MineNative.openAlarmSettings(v)}catch(err){} break;
     case 'fast-toggle': {const f=fastCfg();f.on=!f.on;S.settings.fast=f;Store.mark('settings');render();toast(f.on?'Fasting on: '+fmtTime(f.start)+' to '+fmtTime(f.end):'Fasting off');break}
     case 'fast-break': confirmBox('End today’s fast? The fasting notification goes away until tomorrow night.','End fast',()=>{try{window.MineNative.breakFast()}catch(err){}render();toast('Fast ended. Back at it tonight')}); break;
+    case 'restore-pick': try{window.MineNative.pickBackup()}catch(err){toast('Update the app to restore backups')} break;
     case 'alarm-tone': try{window.MineNative.pickAlarmTone()}catch(err){toast('Alarm sounds can be changed in the Android app')} break;
     case 'test-alarm': try{window.MineNative.testAlarm(10);toast('Test alarm in 10 seconds. You can lock the phone.')}catch(err){} break;
     case 'app-lock': try{window.MineNative.setLock(v==='on')}catch(err){} render(); break;
@@ -2776,7 +2791,7 @@ document.addEventListener('change',e=>{
   if(t.id==='f-task') F.taskId=t.value;
   if(t.id==='tr-me') updateTripPreview();
   if(t.id==='x-split-me'){modalCtx.split.me=t.checked;splitEven();splitBox()}
-  if(t.id==='restore-file'&&t.files[0]){const r=new FileReader();r.onload=async()=>{try{let d=JSON.parse(r.result);if(d&&d.mineEnc){const pw=(document.getElementById('bk-pass')||{}).value||'';if(!pw)return toast('Type the backup password above, then restore again');try{d=JSON.parse(await decBackup(d,pw))}catch(e2){return toast('Wrong backup password')}}if(!d||!Array.isArray(d.tasks))throw 0;confirmBox('Replace everything in Mine with this backup?','Restore',()=>{['settings','accounts','cats','txns','lists','tasks','focus','habits','hlog','people','trips','pays','mcat','rules','gym'].forEach(k=>{if(k in d)S[k]=d[k]});gymInit();const ms=[...new Set(S.txns.map(x=>'txn_'+x.date.slice(0,7)))];Store.mark('settings','money','tasks','habits','carpool','gym',...ms);applyTheme();render();toast('Backup restored')})}catch(err){toast('That file isn’t a Mine backup')}};r.readAsText(t.files[0])}
+  if(t.id==='restore-file'&&t.files[0]){const r=new FileReader();r.onload=()=>restoreBackup(r.result);r.onerror=()=>toast('Couldn’t read that file');r.readAsText(t.files[0]);t.value=''}
 });
 document.addEventListener('keydown',e=>{
   if(e.key!=='Enter') return;

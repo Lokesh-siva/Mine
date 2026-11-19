@@ -224,6 +224,11 @@ public class Bridge {
     }
 
     @JavascriptInterface
+    public void pickBackup() {
+        activity.runOnUiThread(activity::pickBackup);
+    }
+
+    @JavascriptInterface
     public void pickAlarmTone() {
         activity.runOnUiThread(activity::pickAlarmTone);
     }

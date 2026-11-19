@@ -38,6 +38,7 @@ public class MainActivity extends Activity {
     private static final int LOCK_REQ = 43;
     private static final int VIDEO_REQ = 44;
     private static final int TONE_REQ = 45;
+    private static final int RESTORE_REQ = 46;
     private String videoKey = null;
     private boolean picking = false;
     static final int SMS_PERM_REQ = 8;
@@ -256,6 +257,18 @@ public class MainActivity extends Activity {
         flushPending();
     }
 
+    /** Opens the file picker for a Mine backup; the file is read natively and passed to the page. */
+    void pickBackup() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
+        picking = true;
+        try {
+            startActivityForResult(i, RESTORE_REQ);
+        } catch (Exception e) {
+            picking = false;
+            runJs("window.nativeBackupFile&&window.nativeBackupFile(null)");
+        }
+    }
+
     /** Android's own alarm-tone list; the choice is used for every alarm Mine rings. */
     void pickAlarmTone() {
         Intent i = new Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
@@ -350,6 +363,30 @@ public class MainActivity extends Activity {
             authing = false;
             if (resultCode == RESULT_OK) onUnlocked();
             else finish();
+            return;
+        }
+        if (requestCode == RESTORE_REQ) {
+            picking = false;
+            final Uri src = resultCode == RESULT_OK && data != null ? data.getData() : null;
+            if (src == null) return;
+            // read here: the page itself isn't allowed to open content:// files
+            new Thread(() -> {
+                String text = null;
+                try (java.io.InputStream in = getContentResolver().openInputStream(src)) {
+                    if (in != null) {
+                        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                        byte[] buf = new byte[64 * 1024];
+                        int n, total = 0;
+                        while ((n = in.read(buf)) > 0 && total < 50 * 1024 * 1024) {
+                            out.write(buf, 0, n);
+                            total += n;
+                        }
+                        text = out.toString("UTF-8");
+                    }
+                } catch (Exception ignored) { }
+                final String js = "window.nativeBackupFile&&window.nativeBackupFile(" + (text == null ? "null" : JSONObject.quote(text)) + ")";
+                runOnUiThread(() -> runJs(js));
+            }).start();
             return;
         }
         if (requestCode == TONE_REQ) {
